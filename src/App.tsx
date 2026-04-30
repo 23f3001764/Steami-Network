@@ -12,11 +12,11 @@ import SimulationsPage from "./pages/SimulationsPage";
 import NotFound from "./pages/NotFound";
 import BlogArticlePage from "./pages/BlogArticlePage";
 import BlogListingPage from "./pages/BlogListingPage";
-import BlogCreatePage from "./pages/BlogCreatePage";
 import AdminPage from "./pages/AdminPage";
 import ModerationPage from "./pages/ModerationPage";
 import ApiConsolePage from "./pages/ApiConsolePage";
 import ChatPage from "./pages/ChatPage";
+import InterestsPage from "./pages/InterestsPage";
 import { CursorEffect } from "@/components/CursorEffect";
 
 const queryClient = new QueryClient();
@@ -37,11 +37,11 @@ function AnimatedRoutes() {
           <Route path="/" element={<ExplainerPage />} />
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/blog" element={<BlogListingPage />} />
-          <Route path="/blog/create" element={<BlogCreatePage />} />
           <Route path="/blog/:id" element={<BlogArticlePage />} />
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/simulations" element={<SimulationsPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/interests" element={<InterestsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/moderation" element={<ModerationPage />} />
           <Route path="/api-console" element={<ApiConsolePage />} />

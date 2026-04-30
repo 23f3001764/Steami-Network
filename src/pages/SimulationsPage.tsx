@@ -8,6 +8,12 @@ import { Lightbulb, ChevronDown, X } from 'lucide-react';
 import { ShareMenu } from '@/components/ShareMenu';
 import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 import { PopupLinkPill } from '@/components/PopupLinkPill';
+import { api } from '@/lib/api';
+
+const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
+  if (!popup_id) return;
+  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
+};
 
 const simulations = [
   {
@@ -54,6 +60,8 @@ export default function SimulationsPage() {
     const simId = params.get('simulation') ?? params.get('open');
     if (simId && simulations.some((sim) => sim.id === simId)) {
       setOpenSim(simId);
+      const sim = simulations.find((s) => s.id === simId);
+      if (sim) logPopupEvent('simulation', sim.id, sim.title);
       params.delete('simulation');
       params.delete('open');
       window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`);
@@ -164,7 +172,10 @@ export default function SimulationsPage() {
                   <motion.button
                     whileHover={cardHover}
                     whileTap={cardTap}
-                    onClick={() => setOpenSim(sim.id)}
+                    onClick={() => {
+                      setOpenSim(sim.id);
+                      logPopupEvent('simulation', sim.id, sim.title);
+                    }}
                     className="steami-btn text-[11px]"
                   >
                     LAUNCH SIMULATION

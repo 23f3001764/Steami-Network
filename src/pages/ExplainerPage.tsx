@@ -18,6 +18,21 @@ import { ChevronLeft, ChevronRight, Play, Pause, X, Lightbulb, ArrowRight, Netwo
 import { useThemeStore } from '@/stores/theme-store';
 import { api, apiAssetUrl } from '@/lib/api';
 
+const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
+  if (!popup_id) return;
+  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
+};
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/$/, '');
+
+/** Prepend the backend base URL to an image path returned by the API. */
+function getImageUrl(path: string | undefined | null): string {
+  if (!path) return '';
+  // Already absolute (http/https) — return as-is
+  if (/^https?:\/\//.test(path)) return path;
+  return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 export default function ExplainerPage() {
   const navigate = useNavigate();
   const isLight = useThemeStore((s) => s.theme === 'light');
@@ -39,7 +54,10 @@ export default function ExplainerPage() {
     setLoadingExplainers(true);
     setExplainerError('');
     api.content.explainers()
-      .then((data: any) => setBackendExplainers(Array.isArray(data) ? data : data?.explainers ?? data?.items ?? []))
+      .then((data: any) => {
+        const items: any[] = Array.isArray(data) ? data : data?.explainers ?? data?.items ?? [];
+        setBackendExplainers([...items].reverse());
+      })
       .catch((err: any) => {
         setExplainerError(`Backend explainer API failed: ${err.message || 'Unable to fetch explainers'}`);
         setBackendExplainers([]);
@@ -51,8 +69,11 @@ export default function ExplainerPage() {
     setSelectedIdx(idx);
     setSlideIdx(0);
     setAutoPlay(true);
-    const id = pageExplainers[idx]?.id;
-    if (id) setSearchParams({ explainer: id }, { replace: false });
+    const item = pageExplainers[idx];
+    if (item?.id) {
+      setSearchParams({ explainer: item.id }, { replace: false });
+      logPopupEvent('explainer', item.id, item.title);
+    }
   }, [pageExplainers, setSearchParams]);
 
   const openModalFromLink = useCallback((idx: number) => {
@@ -75,7 +96,12 @@ export default function ExplainerPage() {
     const openId = searchParams.get('explainer') ?? searchParams.get('open');
     if (openId) {
       const idx = pageExplainers.findIndex((e) => e.id === openId);
-      if (idx !== -1) openModalFromLink(idx);
+      if (idx !== -1) {
+        if (selectedIdx === null) {
+          logPopupEvent('explainer', pageExplainers[idx]?.id, pageExplainers[idx]?.title);
+        }
+        openModalFromLink(idx);
+      }
     }
   }, [searchParams, openModalFromLink, pageExplainers]);
 
@@ -151,7 +177,7 @@ export default function ExplainerPage() {
                 {(() => {
                   const exp = pageExplainers[carouselIdx];
                   if (!exp) return null;
-                  const heroImg = apiAssetUrl(exp.image) || explainerImages[exp.id];
+                  const heroImg = getImageUrl(exp.image) || explainerImages[exp.id];
                   return (
                     <motion.div
                       whileHover={cardHover}
@@ -255,7 +281,7 @@ export default function ExplainerPage() {
         animate="visible"
       >
         {pageExplainers.map((exp, idx) => {
-          const heroImg = apiAssetUrl(exp.image) || explainerImages[exp.id];
+          const heroImg = getImageUrl(exp.image) || explainerImages[exp.id];
           return (
             <motion.div
               key={exp.id}
@@ -367,7 +393,7 @@ export default function ExplainerPage() {
                 {/* Mobile-only hero image (hidden on lg where right panel shows it) */}
                 <div className="relative overflow-hidden rounded-t-xl lg:hidden" style={{ height: 180 }}>
                   <img
-                    src={apiAssetUrl(selected.image) || explainerImages[selected.id]}
+                    src={getImageUrl(selected.image) || explainerImages[selected.id]}
                     alt={selected.title}
                     className="w-full h-full object-cover"
                     width={768}
@@ -559,7 +585,7 @@ export default function ExplainerPage() {
                 {/* Sticky ArticleMedia */}
                 <div className="sticky top-0 z-10">
                   <ArticleMedia
-                    src={apiAssetUrl(selected.image) || explainerImages[selected.id]}
+                    src={getImageUrl(selected.image) || explainerImages[selected.id]}
                     alt={selected.title}
                     field={selected.field}
                   />

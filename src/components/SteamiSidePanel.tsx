@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { ExternalLink, Loader2, MessageCircle, Newspaper, Sparkles, X, Zap } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
+
+const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
+  if (!popup_id) return;
+  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
+};
 import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 import { ShareMenu } from '@/components/ShareMenu';
 import { PopupLinkPill } from '@/components/PopupLinkPill';
@@ -264,11 +269,13 @@ export function SteamiSidePanel() {
 
         if (insightResult.status === 'fulfilled') {
           setOpenInsight(makeInsightItem(article, insightId, insightResult.value));
+          logPopupEvent('ai_insight', insightId, article?.title);
           return;
         }
 
         if (articleInsight) {
           setOpenInsight(makeInsightItem(article, insightId, articleInsight));
+          logPopupEvent('ai_insight', insightId, article?.title);
           return;
         }
 
@@ -281,6 +288,7 @@ export function SteamiSidePanel() {
         const found = insightList.find((entry) => getArticleId(entry) === insightId || entry.id === insightId || entry._id === insightId);
         if (found) {
           setOpenInsight(makeInsightItem({ ...article, ...found }, insightId, found.ai_insight || found.insight || found));
+          logPopupEvent('ai_insight', insightId, article?.title);
           return;
         }
 
@@ -321,6 +329,7 @@ export function SteamiSidePanel() {
           setArticles((prev) => prev.map((article) => (getArticleId(article) === articleId ? updated : article)));
           setInsightParam(articleId);
           setOpenInsight(makeInsightItem(updated, articleId, updated.ai_insight));
+          logPopupEvent('ai_insight', articleId, updated.title);
         } catch {
           setNotice(true);
         } finally {
@@ -333,6 +342,7 @@ export function SteamiSidePanel() {
     }
     setInsightParam(articleId);
     setOpenInsight(makeInsightItem(item, articleId));
+    logPopupEvent('ai_insight', articleId, item.title);
   };
 
   const items = tab === 'articles' ? articles : feed;

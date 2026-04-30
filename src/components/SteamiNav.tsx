@@ -30,7 +30,7 @@ export function SteamiNav() {
     ...(isAuthenticated ? [{ path: '/chat', label: 'CHAT' }] : []),
     ...(user?.role === 'mod' || user?.role === 'admin' ? [{ path: '/moderation', label: 'MOD' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/admin', label: 'ADMIN' }] : []),
-    ...(isAuthenticated ? [{ path: '/api-console', label: 'API' }] : []),
+    ...(user?.role === 'admin' ? [{ path: '/api-console', label: 'API' }] : []),
   ];
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -127,14 +127,6 @@ export function SteamiNav() {
           {diaryCount > 0 && (
             <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className="hidden md:block">
               <Link to="/dashboard" className="font-mono text-[10px] tracking-wider uppercase px-3 py-1.5 rounded steami-badge-gold">{diaryCount} NOTES</Link>
-            </motion.div>
-          )}
-
-          {isAuthenticated && (
-            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="hidden md:block">
-              <Link to="/blog/create" className="font-mono text-[11px] tracking-wider uppercase px-3.5 py-2 rounded-md transition-all duration-200 text-steami-cyan hover:bg-steami-cyan/10 hover:shadow-[0_0_15px_rgba(0,255,255,0.2)]" style={{ border: `1px solid ${isLight ? 'rgba(59, 130, 246, 0.4)' : 'rgba(111, 168, 255, 0.3)'}` }}>
-                CREATE POST
-              </Link>
             </motion.div>
           )}
 

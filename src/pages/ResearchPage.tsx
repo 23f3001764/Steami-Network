@@ -18,6 +18,20 @@ import { X, ChevronLeft, ChevronRight, Network, FileText, Sparkles, Search, Book
 import { MotionWrapper } from '@/components/MotionWrappers';
 import { api, apiAssetUrl } from '@/lib/api';
 
+const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
+  if (!popup_id) return;
+  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
+};
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/$/, '');
+
+/** Prepend the backend base URL to an image path returned by the API. */
+function getImageUrl(path: string | undefined | null): string {
+  if (!path) return '';
+  if (/^https?:\/\//.test(path)) return path;
+  return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 export default function ResearchPage() {
   const isLight = useThemeStore((s) => s.theme === 'light');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
@@ -34,6 +48,7 @@ export default function ResearchPage() {
   const openArticle = (article: Article) => {
     setSelectedArticle(article);
     setSearchParams({ research: article.id }, { replace: false });
+    logPopupEvent('research_article', article.id, article.title);
   };
 
   const openArticleFromLink = (article: Article) => {
@@ -52,7 +67,10 @@ export default function ResearchPage() {
     setLoadingResearch(true);
     setResearchError('');
     api.content.researchArticles()
-      .then((data: any) => setBackendArticles(Array.isArray(data) ? data : data?.articles ?? data?.items ?? []))
+      .then((data: any) => {
+        const items: Article[] = Array.isArray(data) ? data : data?.articles ?? data?.items ?? [];
+        setBackendArticles([...items].reverse());
+      })
       .catch((err: any) => {
         setResearchError(`Backend research API failed: ${err.message || 'Unable to fetch research articles'}`);
         setBackendArticles([]);
@@ -77,6 +95,11 @@ export default function ResearchPage() {
     const openId = searchParams.get('research') ?? searchParams.get('open');
     const article = openId ? pageArticles.find((a) => a.id === openId) : null;
     if (article) {
+      // Only log if selectedArticle isn't already set — avoids double-firing
+      // when openArticle() sets the param and immediately triggers this effect
+      if (!selectedArticle) {
+        logPopupEvent('research_article', article.id, article.title);
+      }
       openArticleFromLink(article);
     }
   }, [searchParams, pageArticles]);
@@ -224,7 +247,7 @@ function CategorySection({
           style={{ scrollbarWidth: 'none', scrollSnapType: 'x mandatory' }}
         >
           {items.map((article, idx) => {
-            const fieldImg = apiAssetUrl((article as any).image) || researchFieldImages[article.field];
+            const fieldImg = getImageUrl((article as any).image) || researchFieldImages[article.field];
             return (
               <motion.div
                 key={article.id}
@@ -346,7 +369,7 @@ function ArticleModal({
   relatedPool: Article[];
   isLight: boolean;
 }) {
-  const fieldImg = apiAssetUrl((article as any).image) || researchFieldImages[article.field];
+  const fieldImg = getImageUrl((article as any).image) || researchFieldImages[article.field];
 
   return (
     <motion.div

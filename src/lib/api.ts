@@ -95,6 +95,55 @@ export const api = {
     newsletterRecipients: () => apiRequest("/api/auth/newsletter/recipients"),
   },
 
+  /**
+   * Profile endpoints — /api/profile/*
+   * Backed by profile_router.py registered at prefix /api/profile
+   *
+   * Validation rules (mirror these on the frontend):
+   *   username  : /^[a-zA-Z0-9_]{3,30}$/
+   *   password  : /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+   *   avatar_url: http/https + image extension, or trusted host
+   */
+  profile: {
+    /** GET /api/profile/me — full profile */
+    me: () => apiRequest("/api/profile/me"),
+
+    /**
+     * PATCH /api/profile/me — update name, username, bio, location,
+     * website, profession, interests, subscribe_email.
+     * Only fields you pass are updated (partial update).
+     */
+    update: (body: {
+      full_name?: string;
+      username?: string;
+      bio?: string;
+      location?: string;
+      website?: string;
+      profession?: string;
+      interests?: string[];
+      subscribe_email?: boolean;
+    }) => apiRequest("/api/profile/me", { method: "PATCH", body }),
+
+    /** PATCH /api/profile/me/email — change email (requires current password) */
+    changeEmail: (body: { email: string; password: string }) =>
+      apiRequest("/api/profile/me/email", { method: "PATCH", body }),
+
+    /** PATCH /api/profile/me/password — change password */
+    changePassword: (body: { current_password: string; new_password: string }) =>
+      apiRequest("/api/profile/me/password", { method: "PATCH", body }),
+
+    /** PATCH /api/profile/me/avatar — set avatar via URL */
+    setAvatar: (avatar_url: string) =>
+      apiRequest("/api/profile/me/avatar", { method: "PATCH", body: { avatar_url } }),
+
+    /** DELETE /api/profile/me/avatar — remove avatar */
+    removeAvatar: () => apiRequest("/api/profile/me/avatar", { method: "DELETE" }),
+
+    /** DELETE /api/profile/me — delete own account (requires password) */
+    deleteAccount: (password: string) =>
+      apiRequest("/api/profile/me", { method: "DELETE", body: { password } }),
+  },
+
   newsletter: {
     recipients: () => apiRequest("/api/newsletter/recipients"),
     subscribe: (email: string, name = "") => apiRequest("/api/newsletter/subscribe", { method: "POST", body: { email, name } }),
@@ -217,7 +266,8 @@ export const api = {
     event: (body: { popup_type: string; popup_id: string; popup_title?: string }) => apiRequest("/api/dashboard/event", { method: "POST", body }),
     me: () => apiRequest("/api/dashboard/me"),
     admin: () => apiRequest("/api/dashboard/admin"),
-    events: () => apiRequest("/api/dashboard/admin/events"),
+    events: (params?: { limit?: number; popup_type?: string; uid_filter?: string }) =>
+      apiRequest(`/api/dashboard/admin/events${buildQuery(params)}`),
   },
 
   security: {
