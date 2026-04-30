@@ -16,8 +16,9 @@ type Tab = 'articles' | 'feed' | null;
 
 const getSummary = (item: any) => item.short_summary || item.description || item.abstract || item.content || '';
 const getUrl = (item: any) => item.article_url || item.url || '';
-const hasInsight = (item: any) => !!(item.has_insight || item.ai_insight);
+const hasInsight = (item: any) => !!(item.has_insight || item.ai_insight || item.insight_payload || item.insight);
 const getArticleId = (item: any) => pickFirst(item.article_id, item.source_article_id, item.articleId, item.id, item._id);
+const getItemId = (item: any) => pickFirst(item.id, item._id);
 
 const setInsightParam = (articleId?: string | null) => {
   if (!articleId) return;
@@ -255,6 +256,7 @@ export function SteamiSidePanel() {
   const [notice, setNotice] = useState(false);
   const [openInsight, setOpenInsight] = useState<any | null>(null);
   const [insightLoadingId, setInsightLoadingId] = useState<string | null>(null);
+  const canManageInsights = user?.role === 'admin' || user?.role === 'mod';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -316,7 +318,7 @@ export function SteamiSidePanel() {
   const onInsight = async (item: any) => {
     const articleId = getArticleId(item);
     if (!hasInsight(item)) {
-      if (tab === 'articles' && (user?.role === 'admin' || user?.role === 'mod') && articleId) {
+      if (tab === 'articles' && canManageInsights && articleId) {
         setInsightLoadingId(articleId);
         try {
           const raw: any = await api.articles.generateInsight(articleId);
@@ -337,6 +339,32 @@ export function SteamiSidePanel() {
         }
         return;
       }
+
+      const feedItemId = getItemId(item);
+      if (tab === 'feed' && canManageInsights && feedItemId) {
+        setInsightLoadingId(feedItemId);
+        try {
+          const raw: any = await api.feed.insight(feedItemId);
+          const updated = {
+            ...item,
+            ...raw,
+            title: raw?.title || item.title,
+            insight_payload: raw?.insight_payload || raw?.ai_insight || raw?.insight || raw,
+            ai_insight: raw?.ai_insight || raw?.insight || raw,
+            has_insight: true,
+          };
+          setFeed((prev) => prev.map((feedItem) => (getItemId(feedItem) === feedItemId ? updated : feedItem)));
+          setInsightParam(feedItemId);
+          setOpenInsight(makeInsightItem(updated, feedItemId, updated.ai_insight));
+          logPopupEvent('ai_insight', feedItemId, updated.title);
+        } catch {
+          setNotice(true);
+        } finally {
+          setInsightLoadingId(null);
+        }
+        return;
+      }
+
       setNotice(true);
       return;
     }
@@ -417,8 +445,8 @@ export function SteamiSidePanel() {
                     key={item.id || item._id || index}
                     item={item}
                     onInsight={onInsight}
-                    canGenerateInsight={tab === 'articles' && (user?.role === 'admin' || user?.role === 'mod')}
-                    loading={insightLoadingId === getArticleId(item)}
+                    canGenerateInsight={canManageInsights && !hasInsight(item)}
+                    loading={insightLoadingId === (tab === 'feed' ? getItemId(item) : getArticleId(item))}
                   />
                 ))}
               </ul>
