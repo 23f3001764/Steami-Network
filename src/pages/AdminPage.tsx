@@ -3,7 +3,7 @@ import { SteamiLayout } from '@/components/SteamiLayout';
 import { ApiStatePanel } from '@/components/ApiStatePanel';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
-import { Shield, Send, Trash2, Filter, Zap, RefreshCw, Clock } from 'lucide-react';
+import { Shield, Send, Trash2, Filter, Zap, RefreshCw } from 'lucide-react';
 
 type LoadState = { data: any; loading: boolean; error: string };
 
@@ -159,9 +159,6 @@ export default function AdminPage() {
   const [newsletter, setNewsletter] = useState<LoadState>(initial);
   const [articleRefresh, setArticleRefresh] = useState<{ loading: boolean; result: any; error: string }>({ loading: false, result: null, error: '' });
   const [insightStatus, setInsightStatus] = useState<any>(null);
-  const [cleanup, setCleanup] = useState<{ loading: boolean; result: any; error: string; schedulerStatus: any }>({
-    loading: false, result: null, error: '', schedulerStatus: null,
-  });
 
   // IP ban controls
   const [ip, setIp] = useState('');
@@ -199,17 +196,6 @@ export default function AdminPage() {
     load(setSecurity, api.security.stats);
     load(setNewsletter, api.newsletter.recipients);
     api.insights.status().then(setInsightStatus).catch(() => undefined);
-    api.admin.cleanupStatus().then((s: any) => setCleanup(prev => ({ ...prev, schedulerStatus: s }))).catch(() => undefined);
-  };
-
-  const runCleanup = async () => {
-    setCleanup(prev => ({ ...prev, loading: true, result: null, error: '' }));
-    try {
-      const result = await api.admin.triggerCleanup();
-      setCleanup(prev => ({ ...prev, loading: false, result }));
-    } catch (err: any) {
-      setCleanup(prev => ({ ...prev, loading: false, error: err.message || 'Cleanup failed' }));
-    }
   };
 
   // POST /api/articles/refresh — domains always [] to fetch all types, target 40
@@ -622,100 +608,6 @@ export default function AdminPage() {
                     <EventRow key={ev.id ?? `${ev.popup_id}-${i}`} ev={ev} />
                   ))
               }
-            </div>
-          </ApiStatePanel>
-        </div>
-
-        {/* ── Daily Cleanup: POST /api/admin/cleanup ───────────────────────── */}
-        <div className="lg:col-span-2">
-          <ApiStatePanel
-            title="Daily Auto-Cleanup"
-            loading={false}
-            error={cleanup.error}
-            onRefresh={() =>
-              api.admin.cleanupStatus()
-                .then((s: any) => setCleanup(prev => ({ ...prev, schedulerStatus: s })))
-                .catch(() => undefined)
-            }
-          >
-            <p className="text-[13px] text-muted-foreground mb-4">
-              Automatically deletes articles, feed items, AI insights, and insight queue entries
-              older than <span className="text-steami-cyan font-mono">25 days</span>.
-              The scheduler runs every 24 hours on startup. You can also trigger a pass manually.
-            </p>
-
-            {/* Scheduler status badges */}
-            {cleanup.schedulerStatus && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                <StatCard
-                  label="Scheduler"
-                  value={cleanup.schedulerStatus.scheduler_started ? 'Running' : 'Stopped'}
-                />
-                <StatCard
-                  label="In Progress"
-                  value={cleanup.schedulerStatus.cleanup_in_progress ? 'Yes' : 'No'}
-                />
-                <StatCard label="Expiry Days" value={cleanup.schedulerStatus.expiry_days ?? 25} />
-                <StatCard
-                  label="Interval"
-                  value={`${cleanup.schedulerStatus.interval_hours ?? 24}h`}
-                />
-              </div>
-            )}
-
-            {/* Last cleanup result */}
-            {cleanup.result && !cleanup.result.skipped && (
-              <div className="mb-4 rounded-md border border-white/10 bg-white/[0.03] px-4 py-3 space-y-1">
-                <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
-                  Last cleanup result
-                </div>
-                {[
-                  ['Articles deleted',      cleanup.result.articles?.deleted ?? 0],
-                  ['Feed items deleted',    cleanup.result.feed?.deleted ?? 0],
-                  ['AI insights deleted',   cleanup.result.ai_insights?.deleted ?? 0],
-                  ['Queue entries deleted', cleanup.result.insight_queue?.deleted ?? 0],
-                  ['Total deleted',         cleanup.result.total_deleted ?? 0],
-                  ['Cutoff date',           cleanup.result.cutoff ? new Date(cleanup.result.cutoff).toLocaleString() : '—'],
-                  ['Finished at',           cleanup.result.finished_at ? new Date(cleanup.result.finished_at).toLocaleString() : '—'],
-                ].map(([label, val]) => (
-                  <div key={String(label)} className="flex gap-2 font-mono text-[12px]">
-                    <span className="text-muted-foreground w-44 shrink-0">{label}</span>
-                    <span className={String(label) === 'Total deleted' ? 'text-steami-gold' : 'text-steami-cyan'}>
-                      {String(val)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {cleanup.result?.skipped && (
-              <div className="mb-4 rounded-md border border-yellow-400/20 bg-yellow-400/5 px-4 py-2 font-mono text-[12px] text-yellow-300">
-                ⚠ {cleanup.result.reason}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {/* POST /api/admin/cleanup */}
-              <button
-                className="steami-btn text-[11px] flex items-center gap-1.5"
-                onClick={runCleanup}
-                disabled={cleanup.loading}
-              >
-                <Trash2 className={`w-3 h-3 ${cleanup.loading ? 'animate-pulse' : ''}`} />
-                {cleanup.loading ? 'Cleaning…' : 'Run cleanup now'}
-              </button>
-
-              {/* GET /api/admin/cleanup/status */}
-              <button
-                className="steami-btn text-[11px] flex items-center gap-1.5"
-                onClick={() =>
-                  api.admin.cleanupStatus()
-                    .then((s: any) => setCleanup(prev => ({ ...prev, schedulerStatus: s })))
-                    .catch(() => undefined)
-                }
-              >
-                <Clock className="w-3 h-3" /> Check scheduler status
-              </button>
             </div>
           </ApiStatePanel>
         </div>
