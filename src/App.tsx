@@ -17,6 +17,8 @@ import ModerationPage from "./pages/ModerationPage";
 import ApiConsolePage from "./pages/ApiConsolePage";
 import ChatPage from "./pages/ChatPage";
 import InterestsPage from "./pages/InterestsPage";
+import ProfilePage from "./pages/ProfilePage";
+import InsightsPage from "./pages/InsightsPage";
 import { CursorEffect } from "@/components/CursorEffect";
 
 const queryClient = new QueryClient();
@@ -41,7 +43,9 @@ function AnimatedRoutes() {
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/simulations" element={<SimulationsPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/interests" element={<InterestsPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/moderation" element={<ModerationPage />} />
           <Route path="/api-console" element={<ApiConsolePage />} />

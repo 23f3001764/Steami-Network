@@ -265,6 +265,8 @@ export const api = {
   dashboard: {
     event: (body: { popup_type: string; popup_id: string; popup_title?: string }) => apiRequest("/api/dashboard/event", { method: "POST", body }),
     me: () => apiRequest("/api/dashboard/me"),
+    subjectIntelligence: (params?: { limit?: number }) =>
+      apiRequest(`/api/dashboard/subject-intelligence${buildQuery(params)}`),
     admin: () => apiRequest("/api/dashboard/admin"),
     events: (params?: { limit?: number; popup_type?: string; uid_filter?: string }) =>
       apiRequest(`/api/dashboard/admin/events${buildQuery(params)}`),

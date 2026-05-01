@@ -1,125 +1,233 @@
-import { motion } from 'framer-motion';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import { useThemeStore } from '@/stores/theme-store';
-import { articles } from '@/data/research-articles';
-import { explainers } from '@/data/explainers';
-import { useMemo } from 'react';
+/**
+ * SubjectRadarChart.tsx
+ * ─────────────────────
+ * Subject Intelligence radar chart for the STEAMI dashboard.
+ *
+ * Calls GET /api/dashboard/subject-intelligence and renders a Recharts
+ * RadarChart showing the user's engagement score (0–100) per STEAMI subject.
+ *
+ * Subjects where the user has a saved interest are highlighted with a gold dot.
+ * A "top subject" badge is shown beneath the chart.
+ *
+ * Usage (drop-in replacement for the placeholder in DashboardPage.tsx):
+ *   <SubjectRadarChart />
+ *
+ * The component is self-contained — it owns its own data fetch so the parent
+ * page does not need to pass any props.
+ */
 
-const FIELD_COLORS: Record<string, string> = {
-  'PHYSICS': 'hsl(207 72% 65%)',
-  'AI': 'hsl(280 60% 65%)',
-  'BIOLOGY': 'hsl(142 55% 50%)',
-  'CHEMISTRY': 'hsl(42 75% 60%)',
-  'MEDICINE': 'hsl(0 65% 60%)',
-  'EARTH & SPACE': 'hsl(200 70% 55%)',
-  'CLIMATE & ENERGY': 'hsl(160 55% 50%)',
-  'MATHEMATICS': 'hsl(260 50% 60%)',
-  'COMPUTER SCIENCE': 'hsl(190 65% 55%)',
-  'ENGINEERING': 'hsl(25 70% 55%)',
-  'ROBOTICS': 'hsl(320 55% 55%)',
-};
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis,
+  PolarRadiusAxis, ResponsiveContainer, Tooltip,
+} from 'recharts';
+import { BrainCircuit, TrendingUp, Loader2 } from 'lucide-react';
+import { useThemeStore } from '@/stores/theme-store';
+import { api } from '@/lib/api';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SubjectScore {
+  subject: string;
+  opens: number;
+  score: number;
+  is_interest: boolean;
+}
+
+interface SubjectIntelligenceResponse {
+  subjects: SubjectScore[];
+  total_events_analysed: number;
+  top_subject: string | null;
+  user_interests: string[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Shorten long subject names so the radar axis labels stay readable. */
+function shortLabel(subject: string): string {
+  const MAP: Record<string, string> = {
+    'COMPUTER SCIENCE':  'CS',
+    'AI + ROBOTICS':     'AI/Robotics',
+    'SPACE + ASTRONOMY': 'Space',
+    'ENVIRONMENT':       'Env.',
+    'MATHEMATICS':       'Math',
+    'NEUROSCIENCE':      'Neuro',
+    'ENGINEERING':       'Eng.',
+    'CHEMISTRY':         'Chem.',
+    'MEDICINE':          'Med.',
+  };
+  return MAP[subject] ?? subject.charAt(0) + subject.slice(1).toLowerCase();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom Tooltip
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SubjectTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const d: SubjectScore & { fullMark: number; metric: string } = payload[0].payload;
+  return (
+    <div className="glass-card relative px-3 py-2 overflow-hidden !border-steami-gold/30 min-w-[120px]">
+      <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+        {d.metric}
+      </p>
+      <p className="font-mono text-sm font-extrabold text-foreground">{d.score}%</p>
+      {d.opens > 0 && (
+        <p className="font-mono text-[10px] text-steami-gold mt-0.5">{d.opens} open{d.opens !== 1 ? 's' : ''}</p>
+      )}
+      {d.is_interest && (
+        <p className="font-mono text-[10px] text-steami-cyan mt-0.5">★ Your interest</p>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function SubjectRadarChart() {
   const { theme } = useThemeStore();
-  const isLight = theme === 'light';
+  const isLight   = theme === 'light';
 
-  const subjectData = useMemo(() => {
-    const fieldCounts: Record<string, number> = {};
+  const [data, setData]       = useState<SubjectIntelligenceResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(false);
 
-    articles.forEach((a) => {
-      fieldCounts[a.field] = (fieldCounts[a.field] || 0) + 1;
-    });
-    explainers.forEach((e) => {
-      fieldCounts[e.field] = (fieldCounts[e.field] || 0) + 1;
-    });
-
-    const maxCount = Math.max(...Object.values(fieldCounts), 1);
-
-    return Object.entries(fieldCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([field, count]) => ({
-        subject: field.length > 12 ? field.slice(0, 10) + '…' : field,
-        fullName: field,
-        value: Math.round((count / maxCount) * 100),
-        count,
-      }));
+  useEffect(() => {
+    setLoading(true);
+    // Uses the same `api` helper the rest of the dashboard uses.
+    // If your api helper doesn't have this method yet, add:
+    //   dashboard: { subjectIntelligence: () => apiFetch('/api/dashboard/subject-intelligence') }
+    api.dashboard
+      .subjectIntelligence()
+      .then((res: any) => setData(res as SubjectIntelligenceResponse))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
   }, []);
+
+  // Map API data → Recharts format
+  const chartData = (data?.subjects ?? []).map((s) => ({
+    metric:   shortLabel(s.subject),
+    value:    s.score,
+    fullMark: 100,
+    // pass through for tooltip
+    subject:     s.subject,
+    opens:       s.opens,
+    is_interest: s.is_interest,
+    score:       s.score,
+  }));
+
+  const hasActivity = (data?.total_events_analysed ?? 0) > 0;
 
   return (
     <div>
-      <div className="steami-section-label mb-3"> SUBJECT INTELLIGENCE</div>
-      <div className="glass-card relative p-6 overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.15 }}
-        >
-          <ResponsiveContainer width="100%" height={280}>
-            <RadarChart cx="50%" cy="50%" outerRadius="65%" data={subjectData}>
-              <PolarGrid
-                stroke={isLight ? 'hsl(210 40% 75% / 0.4)' : 'hsl(42 75% 60% / 0.1)'}
-                strokeWidth={0.5}
-              />
-              <PolarAngleAxis
-                dataKey="subject"
-                tick={{
-                  fill: isLight ? 'hsl(210 30% 30%)' : 'hsl(210 25% 65%)',
-                  fontSize: 9,
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 600,
-                }}
-              />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, 100]}
-                tick={{
-                  fill: isLight ? 'hsl(210 20% 50%)' : 'hsl(210 15% 45%)',
-                  fontSize: 7,
-                  fontFamily: 'var(--font-mono)',
-                }}
-                tickCount={4}
-                axisLine={false}
-              />
-              <Radar
-                name="Content"
-                dataKey="value"
-                stroke="hsl(42 75% 60%)"
-                strokeWidth={2}
-                fill="hsl(42 75% 60%)"
-                fillOpacity={isLight ? 0.12 : 0.2}
-                dot={{
-                  r: 4,
-                  fill: 'hsl(42 75% 60%)',
-                  stroke: 'hsl(42 75% 80%)',
-                  strokeWidth: 2,
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </motion.div>
+      {/* Section label */}
+      <div className="steami-section-label mb-3">✦ SUBJECT INTELLIGENCE</div>
 
-        {/* Always-visible legend */}
-        <div className="mt-3 pt-3 border-t border-steami-gold/10">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-            {subjectData.map((item) => (
-              <div key={item.fullName} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: FIELD_COLORS[item.fullName] || 'hsl(42 75% 60%)' }}
-                  />
-                  <span className="font-mono text-[11px] text-muted-foreground truncate">
-                    {item.fullName}
-                  </span>
-                </div>
-                <span className="font-mono text-[11px] font-extrabold text-foreground shrink-0">
-                  {item.count}
-                </span>
-              </div>
-            ))}
+      <div className="glass-card relative p-6 overflow-hidden">
+
+        {/* ── Loading ── */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center h-[280px] gap-3">
+            <Loader2 className="w-5 h-5 text-steami-gold animate-spin" />
+            <p className="font-mono text-[11px] text-muted-foreground animate-pulse">
+              Analysing your subject engagement…
+            </p>
           </div>
-        </div>
+        )}
+
+        {/* ── Error ── */}
+        {!loading && error && (
+          <div className="flex flex-col items-center justify-center h-[280px] gap-3">
+            <BrainCircuit className="w-8 h-8 text-muted-foreground/40" />
+            <p className="font-mono text-[12px] text-muted-foreground">
+              Could not load subject data.
+            </p>
+          </div>
+        )}
+
+        {/* ── Chart ── */}
+        {!loading && !error && (
+          <>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.7, ease: 'easeOut' }}
+            >
+              <ResponsiveContainer width="100%" height={280}>
+                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                  <PolarGrid
+                    stroke={isLight ? 'hsl(42 75% 60% / 0.25)' : 'hsl(42 75% 60% / 0.1)'}
+                    strokeWidth={0.5}
+                  />
+                  <PolarAngleAxis
+                    dataKey="metric"
+                    tick={{
+                      fill:       isLight ? 'hsl(35 40% 30%)' : 'hsl(42 30% 55%)',
+                      fontSize:   9,
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  />
+                  <PolarRadiusAxis
+                    angle={90}
+                    domain={[0, 100]}
+                    tick={false}
+                    axisLine={false}
+                  />
+                  <Radar
+                    name="Subject"
+                    dataKey="value"
+                    stroke="hsl(42 75% 60%)"
+                    strokeWidth={2}
+                    fill="hsl(42 75% 60%)"
+                    fillOpacity={isLight ? 0.12 : 0.18}
+                    dot={{ r: 3, fill: 'hsl(42 75% 60%)', stroke: 'hsl(42 75% 75%)', strokeWidth: 1 }}
+                    activeDot={{ r: 5, fill: 'hsl(207 72% 65%)', stroke: 'hsl(207 72% 80%)', strokeWidth: 2 }}
+                  />
+                  <Tooltip content={<SubjectTooltip />} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </motion.div>
+
+            {/* Footer */}
+            <div className="mt-2 pt-3 border-t border-steami-gold/10">
+              <motion.div
+                className="flex items-center gap-2 text-steami-gold font-mono text-[11px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.75 }}
+              >
+                <TrendingUp className="w-3 h-3 shrink-0" />
+                {hasActivity && data?.top_subject
+                  ? `Strongest subject: ${shortLabel(data.top_subject)} · ${data.total_events_analysed} events analysed`
+                  : 'Open explainers, articles, and insights to build your subject profile.'}
+              </motion.div>
+
+              {/* Interest legend dots */}
+              {(data?.user_interests?.length ?? 0) > 0 && (
+                <motion.div
+                  className="flex flex-wrap gap-x-3 gap-y-1 mt-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.9 }}
+                >
+                  <span className="font-mono text-[10px] text-muted-foreground">Your interests:</span>
+                  {data!.user_interests.map((interest) => (
+                    <span key={interest} className="font-mono text-[10px] text-steami-cyan">
+                      ★ {shortLabel(interest)}
+                    </span>
+                  ))}
+                </motion.div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
