@@ -135,10 +135,10 @@ export default function ExplainerPage() {
       <ScrollNavigator />
 
       <motion.div className="mb-10" variants={fadeInUp} initial="hidden" animate="visible">
-        <h1 className="steami-heading text-4xl md:text-5xl mb-4">
+        <h1 className="steami-heading text-3xl sm:text-4xl md:text-5xl mb-4">
           Intelligence Explainers
         </h1>
-        <p className="text-[18px] font-medium text-muted-foreground max-w-xl leading-relaxed">
+        <p className="text-[16px] sm:text-[18px] font-medium text-muted-foreground max-w-xl leading-relaxed">
           Interactive deep-dives into breakthrough science & technology. Select text to save to your Research Diary.
         </p>
       </motion.div>
@@ -164,7 +164,7 @@ export default function ExplainerPage() {
           onMouseEnter={() => setCarouselPaused(true)}
           onMouseLeave={() => setCarouselPaused(false)}
         >
-          <div className="relative overflow-hidden" style={{ minHeight: 400 }}>
+          <div className="relative overflow-visible sm:overflow-hidden sm:min-h-[400px]">
             <AnimatePresence mode="wait">
               <motion.div
                 key={carouselIdx}
@@ -192,14 +192,15 @@ export default function ExplainerPage() {
                         animate={{ scaleX: 1 }}
                         transition={{ duration: 0.5 }}
                       />
-                      {/* Hero image via CardMedia (no hover-zoom on featured) */}
-                      <div className="relative overflow-hidden" style={{ height: 220 }}>
+                      {/* Hero image container with flexible aspect ratio */}
+                      <div className="relative overflow-hidden aspect-video sm:aspect-[21/9] md:aspect-[2.4/1]">
                         <img
                           src={heroImg}
                           alt={exp.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain bg-muted/5 dark:bg-black/20"
                           width={768}
                           height={512}
+                          loading="eager"
                         />
                          <div
                           className="absolute inset-0"
@@ -211,15 +212,15 @@ export default function ExplainerPage() {
                          />
                         <ShareMenu title={exp.title} popupType="explainer" popupId={exp.id} compact className="absolute top-4 right-5 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <div className="px-8 pb-8 pt-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className={`${badgeClass(exp.badgeColor)} text-[16px]`}>{exp.field}</span>
+                      <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-4">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <span className={`${badgeClass(exp.badgeColor)} text-[11px] sm:text-[13px]`}>{exp.field}</span>
                           <span className="steami-badge steami-badge-gold text-[10px]">FEATURED</span>
                         </div>
                         <div className="flex items-start gap-5">
-                          <div className="flex-1">
-                            <h3 className="font-serif text-2xl md:text-3xl font-extrabold mb-3 leading-snug text-foreground">{exp.title}</h3>
-                            <p className="text-[18px] font-medium text-muted-foreground leading-relaxed mb-6 max-w-2xl">{exp.subtitle}</p>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-serif text-xl sm:text-2xl md:text-3xl font-extrabold mb-3 leading-snug text-foreground">{exp.title}</h3>
+                            <p className="text-[15px] sm:text-[18px] font-medium text-muted-foreground leading-relaxed mb-6 max-w-2xl">{exp.subtitle}</p>
                           </div>
                           <CardSvgVisual field={exp.field} variant="featured" className="hidden sm:flex mt-1" />
                         </div>
@@ -310,14 +311,14 @@ export default function ExplainerPage() {
               />
 
               {/* Content Area */}
-              <div className="p-6 pt-4 flex-1 flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`${badgeClass(exp.badgeColor)} text-[16px] inline-block`}>{exp.field}</span>
+              <div className="p-5 sm:p-6 sm:pt-4 flex-1 flex flex-col">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <span className={`${badgeClass(exp.badgeColor)} text-[11px] sm:text-[13px] inline-block`}>{exp.field}</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
                     <h3 className="font-serif text-[18px] font-extrabold mb-2 leading-snug text-foreground">{exp.title}</h3>
-                    <p className="text-[18px] font-medium text-muted-foreground leading-relaxed line-clamp-3 mb-4">{exp.subtitle}</p>
+                    <p className="text-[15px] sm:text-[17px] font-medium text-muted-foreground leading-relaxed line-clamp-3 mb-4">{exp.subtitle}</p>
                   </div>
                   <CardSvgVisual field={exp.field} variant="mini" className="hidden sm:flex mt-0.5 shrink-0" />
                 </div>
@@ -359,7 +360,7 @@ export default function ExplainerPage() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed inset-0 z-[200] flex p-3 md:p-4"
+            className="fixed inset-0 z-[200] flex p-2 sm:p-3 md:p-4"
             style={{ background: isLight ? 'rgba(186,230,253,0.6)' : 'rgba(2,8,18,0.85)', backdropFilter: 'blur(8px)' }}
             onClick={closeModal}
           >
@@ -368,7 +369,7 @@ export default function ExplainerPage() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="flex flex-1 max-w-[1200px] mx-auto gap-0 md:gap-4 max-h-[92vh]"
+              className="flex w-full flex-1 max-w-[1200px] mx-auto gap-0 md:gap-4 max-h-[94svh]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* ── LEFT PANEL: Scrollable Content ── */}
@@ -391,11 +392,11 @@ export default function ExplainerPage() {
                 />
 
                 {/* Mobile-only hero image (hidden on lg where right panel shows it) */}
-                <div className="relative overflow-hidden rounded-t-xl lg:hidden" style={{ height: 180 }}>
+                <div className="relative overflow-hidden rounded-t-xl lg:hidden aspect-video">
                   <img
                     src={getImageUrl(selected.image) || explainerImages[selected.id]}
                     alt={selected.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-muted/5 dark:bg-black/20"
                     width={768}
                     height={512}
                   />
@@ -411,7 +412,7 @@ export default function ExplainerPage() {
 
                 {/* Sticky header bar */}
                 <div
-                  className="sticky top-0 z-10 px-6 py-3 flex items-center justify-between border-b border-foreground/5"
+                  className="sticky top-0 z-10 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-foreground/5"
                   style={{
                     background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(5,14,32,0.96)',
                     backdropFilter: 'blur(20px)',
@@ -421,7 +422,7 @@ export default function ExplainerPage() {
                     <span className={badgeClass(selected.badgeColor)}>{selected.field}</span>
                     <span className="font-mono text-[11px] text-muted-foreground">{selected.readTime}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
                     <PopupLinkPill type="explainer" id={selected.id} />
                     <ShareMenu title={selected.title} popupType="explainer" popupId={selected.id} compact />
                     <motion.button
@@ -448,7 +449,7 @@ export default function ExplainerPage() {
                 </div>
 
                 {/* Article body */}
-                <div className="p-6 md:p-7">
+                <div className="p-4 sm:p-6 md:p-7">
                   {/* Title + meta */}
                   <motion.div
                     className="flex items-start gap-4 mb-2"
@@ -456,7 +457,7 @@ export default function ExplainerPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
                   >
-                    <h2 className="steami-heading text-2xl flex-1">{selected.title}</h2>
+                    <h2 className="steami-heading text-xl sm:text-2xl flex-1 min-w-0">{selected.title}</h2>
                     <CardSvgVisual field={selected.field} variant="modal" className="hidden sm:flex lg:hidden" />
                   </motion.div>
                   {selected.author && (

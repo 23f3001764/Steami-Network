@@ -1,7 +1,9 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { api } from '@/lib/api';
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -11,9 +13,9 @@ const staggerContainer = {
   },
 };
 
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
 };
 
 const navigation = {
@@ -29,9 +31,9 @@ const navigation = {
     { name: 'Knowledge Graph', href: '#' },
   ],
   company: [
-    { name: 'About', href: '#' },
-    { name: 'Contact', href: '#' },
-    { name: 'Careers', href: '#' },
+    { name: 'About', href: 'https://stemonef.world/', external: true },
+    { name: 'Contact', href: 'https://stemonef.world/', external: true },
+    { name: 'Careers', href: 'https://stemonef.world/', external: true },
   ],
 };
 
@@ -65,23 +67,132 @@ const socialIcons = [
   },
 ];
 
-function FooterColumn({ title, links }: { title: string; links: { name: string; href: string }[] }) {
+function FooterColumn({ title, links }: { title: string; links: { name: string; href: string; external?: boolean }[] }) {
   return (
     <motion.div variants={fadeUp} className="flex flex-col gap-4">
       <h3 className="font-mono text-[13px] font-semibold tracking-wider text-foreground uppercase">{title}</h3>
       <ul className="flex flex-col gap-3">
         {links.map((link) => (
           <li key={link.name}>
-            <Link
-              to={link.href}
-              className="group relative inline-flex items-center text-[14px] text-muted-foreground hover:text-foreground transition-colors duration-200"
-            >
-              <span className="relative z-10">{link.name}</span>
-              <span className="absolute left-0 -bottom-0.5 w-0 h-[1px] bg-gradient-to-r from-steami-cyan to-steami-magenta group-hover:w-full transition-all duration-300 ease-out" />
-            </Link>
+            {link.external ? (
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative inline-flex items-center text-[14px] text-muted-foreground hover:text-foreground transition-colors duration-200"
+              >
+                <span className="relative z-10">{link.name}</span>
+                <span className="absolute left-0 -bottom-0.5 w-0 h-[1px] bg-gradient-to-r from-steami-cyan to-steami-magenta group-hover:w-full transition-all duration-300 ease-out" />
+              </a>
+            ) : (
+              <Link
+                to={link.href}
+                className="group relative inline-flex items-center text-[14px] text-muted-foreground hover:text-foreground transition-colors duration-200"
+              >
+                <span className="relative z-10">{link.name}</span>
+                <span className="absolute left-0 -bottom-0.5 w-0 h-[1px] bg-gradient-to-r from-steami-cyan to-steami-magenta group-hover:w-full transition-all duration-300 ease-out" />
+              </Link>
+            )}
           </li>
         ))}
       </ul>
+    </motion.div>
+  );
+}
+
+function NewsletterSection() {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setStatus('error');
+      setMessage('Please enter a valid email.');
+      return;
+    }
+
+    setStatus('loading');
+    try {
+      await api.newsletter.subscribe(email);
+      setStatus('success');
+      setMessage('Thanks for subscribing!');
+      setEmail('');
+      setTimeout(() => {
+        setStatus('idle');
+        setMessage('');
+      }, 5000);
+    } catch (err) {
+      setStatus('error');
+      setMessage('Something went wrong. Try again.');
+    }
+  };
+
+  return (
+    <motion.div variants={fadeUp} className="lg:col-span-2 flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h3 className="font-mono text-[13px] font-semibold tracking-wider text-foreground uppercase">Stay Updated</h3>
+        <p className="text-[14px] text-muted-foreground leading-relaxed">
+          Subscribe to our newsletter for the latest updates in AI and science.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubscribe} className="relative group">
+        <div className="relative flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-[14px] outline-none transition-all duration-300 focus:border-steami-cyan/50 focus:ring-2 focus:ring-steami-cyan/20 focus:bg-white/10"
+              disabled={status === 'loading'}
+            />
+            {/* Subtle animated underline glow */}
+            <motion.div 
+              className="absolute -bottom-[1px] left-0 h-[1px] bg-gradient-to-r from-steami-cyan via-steami-magenta to-steami-cyan"
+              initial={{ width: 0, opacity: 0 }}
+              whileInView={{ width: "100%", opacity: 0.3 }}
+              transition={{ duration: 1.5, ease: "easeInOut" as const }}
+            />
+            <motion.div 
+              className="absolute -bottom-[1px] left-0 h-[1px] bg-steami-cyan shadow-[0_0_8px_rgba(0,255,255,0.5)]"
+              initial={{ width: 0 }}
+              animate={{ width: email ? "100%" : 0 }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+          
+          <motion.button
+            type="submit"
+            disabled={status === 'loading'}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-6 py-2.5 bg-foreground text-background font-mono text-[13px] font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center min-w-[120px]"
+          >
+            {status === 'loading' ? (
+              <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+            ) : (
+              'SUBSCRIBE'
+            )}
+          </motion.button>
+        </div>
+
+        {/* Feedback Message */}
+        <AnimatePresence>
+          {message && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className={`absolute top-full mt-2 text-[12px] font-mono ${status === 'success' ? 'text-steami-cyan' : 'text-red-400'}`}
+            >
+              {message}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </form>
     </motion.div>
   );
 }
@@ -107,12 +218,18 @@ export function Footer() {
           {/* Brand Section */}
           <motion.div variants={fadeUp} className="lg:col-span-2 flex flex-col gap-6">
             <div>
-              <Link to="/" className="inline-block relative group">
-                <h2 className="steami-heading text-2xl tracking-widest text-foreground">STEAMI</h2>
-                <span className="absolute -inset-2 bg-steami-cyan/10 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <Link to="/" className="font-mono text-[20px] font-bold tracking-wider group shrink-0 inline-block">
+                <motion.span
+                  className="text-steami-gold inline-block drop-shadow-sm group-hover:drop-shadow-[0_0_8px_rgba(232,184,75,0.4)] transition-all duration-200"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: "easeOut" as const }}
+                >
+                  STEAMI
+                </motion.span>
               </Link>
               <p className="mt-4 text-[14px] text-muted-foreground leading-relaxed max-w-xs">
-                A futuristic, AI-powered scientific platform designed for discovery, research, and interactive exploration.
+                A STEAM playground for discovery, research, and interactive exploration.
               </p>
             </div>
 
@@ -131,9 +248,9 @@ export function Footer() {
             </div>
           </motion.div>
 
-          {/* Navigation Sections */}
-          <FooterColumn title="Explore" links={navigation.explore} />
-          <FooterColumn title="Resources" links={navigation.resources} />
+          {/* Newsletter Section */}
+          <NewsletterSection />
+          
           <FooterColumn title="Company" links={navigation.company} />
         </div>
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, MessageCircle, Search, Send } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageCircle, Search, Send } from 'lucide-react';
 import { SteamiLayout } from '@/components/SteamiLayout';
 import { RequireLogin } from '@/components/RequireLogin';
 import { api } from '@/lib/api';
@@ -114,8 +114,8 @@ export default function ChatPage() {
         <p className="text-[15px] text-muted-foreground">Search users, send messages, and keep conversations synced through the backend chat API.</p>
       </div>
 
-      <div className="glass-card overflow-hidden h-[640px] grid grid-cols-1 md:grid-cols-[320px_1fr]">
-        <aside className="border-r border-white/10 flex flex-col min-h-0">
+      <div className="glass-card overflow-hidden h-[calc(100svh-180px)] min-h-[520px] md:h-[640px] grid grid-cols-1 md:grid-cols-[320px_1fr]">
+        <aside className={`${selected ? 'hidden md:flex' : 'flex'} border-r border-white/10 flex-col min-h-0`}>
           <div className="p-3 border-b border-white/10">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -146,7 +146,7 @@ export default function ChatPage() {
           </div>
         </aside>
 
-        <section className="flex flex-col min-h-0">
+        <section className={`${selected ? 'flex' : 'hidden md:flex'} flex-col min-h-0`}>
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
               <MessageCircle className="w-10 h-10 opacity-50" />
@@ -154,9 +154,14 @@ export default function ChatPage() {
             </div>
           ) : (
             <>
-              <div className="px-4 py-3 border-b border-white/10">
-                <p className="font-serif text-[18px] font-bold">{getName(selected)}</p>
-                <p className="font-mono text-[11px] text-muted-foreground">{selected.email}</p>
+              <div className="px-3 sm:px-4 py-3 border-b border-white/10 flex items-center gap-3">
+                <button onClick={() => setSelected(null)} className="md:hidden w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-muted-foreground">
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div className="min-w-0">
+                  <p className="font-serif text-[18px] font-bold truncate">{getName(selected)}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground truncate">{selected.email}</p>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {messages.map((msg, index) => {
@@ -164,7 +169,7 @@ export default function ChatPage() {
                   const time = msg.created_at ? new Date(msg.created_at) : msg.timestamp ? new Date(msg.timestamp) : null;
                   return (
                     <div key={msg.id ?? index} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 ${mine ? 'bg-steami-cyan text-slate-950 rounded-br-sm' : 'bg-white/[0.08] rounded-bl-sm'}`}>
+                      <div className={`max-w-[88%] sm:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${mine ? 'bg-steami-cyan text-slate-950 rounded-br-sm' : 'bg-white/[0.08] rounded-bl-sm'}`}>
                         <p className="text-[14px] leading-relaxed break-words">{msg.text}</p>
                         <p className={`mt-1 text-[10px] opacity-55 ${mine ? 'text-right' : ''}`}>{time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}{mine && msg.status === 'seen' ? ' · seen' : ''}</p>
                       </div>
@@ -174,7 +179,7 @@ export default function ChatPage() {
                 <div ref={bottomRef} />
               </div>
               {error && <p className="px-4 pb-2 text-[12px] text-steami-red">{error}</p>}
-              <div className="p-4 border-t border-white/10 flex gap-2">
+              <div className="p-3 sm:p-4 border-t border-white/10 flex gap-2">
                 <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(); }} placeholder={`Message ${getName(selected)}`} className="flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-[14px] outline-none focus:border-steami-cyan/40" />
                 <button onClick={send} disabled={!text.trim() || sending} className="w-10 h-10 rounded-xl bg-steami-cyan text-slate-950 flex items-center justify-center disabled:opacity-40">
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

@@ -38,7 +38,7 @@ function useFeedReadyPoller() {
           clearInterval(pollRef.current!);
           toast.success('Feed is ready', {
             id: toastId,
-            description: 'Your personalised feed articles are live — tap to explore.',
+            description: 'Your personalised feed news is live — tap to explore.',
             icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
             action: {
               label: 'Open Feed',
@@ -128,7 +128,7 @@ export function TextSelectionPopover({ containerRef, source, sourceType, field, 
 
     // Show persistent loading toast immediately — user can navigate away
     const toastId = toast.loading('Building your feed…', {
-      description: 'Finding articles based on your selection. This takes ~20 s.',
+      description: 'Finding news based on your selection. This takes ~20 s.',
       icon: <Rss className="h-4 w-4 text-cyan-400 animate-pulse" />,
       duration: Infinity, // stays until we update it
     });
@@ -139,7 +139,7 @@ export function TextSelectionPopover({ containerRef, source, sourceType, field, 
         source_article_id: sourceId || '',
       });
       // POST returned 201 — backend is now fetching RSS + generating insights in bg
-      toast.loading('Feed articles found — generating insights…', {
+      toast.loading('Feed news found — generating insights…', {
         id: toastId,
         description: 'Insights are being written in the background.',
         icon: <Sparkles className="h-4 w-4 text-cyan-400 animate-pulse" />,

@@ -501,13 +501,13 @@ export default function AdminPage() {
         {/* ── Article Refresh: POST /api/articles/refresh ──────────────────── */}
         <div className="lg:col-span-2">
           <ApiStatePanel
-            title="Article Refresh &amp; Insight Pipeline"
+            title="News Refresh &amp; Insight Pipeline"
             loading={false}
             error={articleRefresh.error}
             onRefresh={() => api.insights.status().then(setInsightStatus).catch(() => undefined)}
           >
             <p className="text-[13px] text-muted-foreground mb-4">
-              Fetches up to 40 fresh articles from all RSS sources (MIT Tech Review, BBC Tech, NYTimes Tech, ScienceDaily).
+              Fetches up to 40 fresh news items from all RSS sources (MIT Tech Review, BBC Tech, NYTimes Tech, ScienceDaily).
               Skips duplicates by URL. AI insight generation starts automatically in the background after fetch.
             </p>
 
@@ -543,7 +543,7 @@ export default function AdminPage() {
                 disabled={articleRefresh.loading}
               >
                 <RefreshCw className={`w-3 h-3 ${articleRefresh.loading ? 'animate-spin' : ''}`} />
-                {articleRefresh.loading ? 'Fetching…' : 'Refresh all articles'}
+                {articleRefresh.loading ? 'Fetching…' : 'Refresh all news'}
               </button>
 
               {/* POST /api/articles/insights/process */}

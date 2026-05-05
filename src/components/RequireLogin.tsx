@@ -6,7 +6,7 @@ export function RequireLogin({ message = 'Please login first to use this feature
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="glass-card p-8 text-center">
+    <div className="glass-card mx-auto mt-10 w-full max-w-md p-8 text-center sm:mt-14">
       <LogIn className="w-8 h-8 text-steami-gold mx-auto mb-3" />
       <h1 className="steami-heading text-2xl mb-2">Login First</h1>
       <p className="text-[14px] text-muted-foreground mb-5">{message}</p>

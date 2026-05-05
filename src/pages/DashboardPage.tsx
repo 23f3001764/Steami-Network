@@ -9,13 +9,15 @@ import { staggerContainer, cardVariants, cardHover, fadeInUp } from '@/lib/motio
 import {
   Trash2, ExternalLink, BookOpen, Sparkles, BarChart3, Activity,
   TrendingUp, Zap, Clock, Flame, User, Bell, BellOff, Newspaper,
-  Lightbulb, ChevronRight, Tag,
+  Lightbulb, ChevronRight, Tag, Loader2,
 } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { explainers } from '@/data/explainers';
 import { SubjectRadarChart } from '@/components/SubjectRadarChart';
 import { api } from '@/lib/api';
 import { RequireLogin } from '@/components/RequireLogin';
+import { PopupLinkPill } from '@/components/PopupLinkPill';
+import { formatShortUserName, getInitials } from '@/lib/user-display';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +72,8 @@ interface UserProfile {
   profession?: string;
   bio?: string;
   avatar_url?: string;
+  google_picture?: string;   // Google OAuth profile photo fallback
+  auth_provider?: string;
   interests?: string[];
   subscribed_newsletter?: boolean;
   role?: string;
@@ -139,8 +143,6 @@ function formatRelativeTime(isoString: string): string {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const getInitials = (name: string) =>
-  name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -162,6 +164,8 @@ export default function DashboardPage() {
   const [refreshCheck, setRefreshCheck]         = useState<RefreshCheckResponse | null>(null);
   const [recentInsights, setRecentInsights]     = useState<Insight[]>([]);
   const [insightsLoading, setInsightsLoading]   = useState(false);
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [newsletterMessage, setNewsletterMessage] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -221,11 +225,48 @@ export default function DashboardPage() {
       .list()
       .then((data: any) => {
         const list: Insight[] = Array.isArray(data?.insights) ? data.insights : [];
-        setRecentInsights(list.slice(0, 6));
+        setRecentInsights(list.slice(0, 24));
       })
       .catch(() => undefined)
       .finally(() => setInsightsLoading(false));
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin' || !user.email) return;
+    api.newsletter
+      .recipients()
+      .then((data: any) => {
+        const recipients = Array.isArray(data) ? data : data?.recipients ?? data?.subscribers ?? [];
+        const subscribed = recipients.some((entry: any) => String(entry.email ?? entry).toLowerCase() === user.email.toLowerCase());
+        setProfile((prev) => prev ? { ...prev, subscribed_newsletter: subscribed } : prev);
+      })
+      .catch(() => undefined);
+  }, [isAuthenticated, user?.email, user?.role]);
+
+  const toggleNewsletter = async () => {
+    const email = profile?.email ?? user?.email;
+    if (!email) {
+      setNewsletterMessage('Add an email to subscribe.');
+      return;
+    }
+
+    const nextSubscribed = !profile?.subscribed_newsletter;
+    setNewsletterLoading(true);
+    setNewsletterMessage('');
+    try {
+      if (nextSubscribed) {
+        await api.newsletter.subscribe(email, profile?.display_name ?? profile?.full_name ?? user?.fullName ?? '');
+      } else {
+        await api.newsletter.unsubscribe(email);
+      }
+      setProfile((prev) => prev ? { ...prev, subscribed_newsletter: nextSubscribed } : prev);
+      setNewsletterMessage(nextSubscribed ? 'Newsletter subscribed.' : 'Newsletter unsubscribed.');
+    } catch (err: any) {
+      setNewsletterMessage(err?.message || 'Newsletter update failed.');
+    } finally {
+      setNewsletterLoading(false);
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -279,6 +320,28 @@ export default function DashboardPage() {
 
   // Insight stats from dashboard.me
   const insightStats = backendStats?.insight_stats;
+  const displayedInsights = (() => {
+    if (recentInsights.length === 0) return [];
+    if (userInterests.length === 0) return recentInsights.slice(0, 2);
+
+    const normalizedInterests = userInterests.map((interest) => interest.toLowerCase());
+    const counts = new Map<string, number>();
+
+    return recentInsights
+      .filter((insight) => {
+        const topic = insight.topic?.toLowerCase() ?? '';
+        const domain = insight.ai_insight?.domain?.toLowerCase() ?? '';
+        const match = normalizedInterests.find((key) => topic.includes(key) || domain.includes(key));
+        const bucket = match ?? topic ?? domain ?? 'other';
+        const current = counts.get(bucket) ?? 0;
+
+        if (current >= 2) return false;
+        counts.set(bucket, current + 1);
+        return true;
+      })
+      .slice(0, Math.min(Math.max(userInterests.length * 2, 2), 8));
+  })();
+  const displayedForMeArticles = filteredArticles.slice(0, 5);
 
   return (
     <SteamiLayout>
@@ -286,7 +349,7 @@ export default function DashboardPage() {
       <motion.div className="mb-8" variants={fadeInUp} initial="hidden" animate="visible">
         <h1 className="steami-heading text-3xl md:text-4xl mb-3">
           {user
-            ? `Welcome, ${(profile?.display_name ?? user.fullName).split(' ')[0]}`
+            ? `Welcome, ${formatShortUserName(profile?.display_name ?? profile?.full_name ?? user.fullName)}`
             : 'Intelligence Dashboard'}
         </h1>
         <p className="text-[18px] font-medium text-muted-foreground max-w-xl leading-relaxed">
@@ -302,13 +365,13 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             {/* Avatar */}
             <div className="shrink-0 relative">
               <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-steami-cyan/30 ring-offset-2 ring-offset-background">
-                {profile.avatar_url ? (
+                {(profile.avatar_url || profile.google_picture) ? (
                   <img
-                    src={profile.avatar_url}
+                    src={profile.avatar_url ?? profile.google_picture}
                     alt={profile.display_name ?? profile.full_name ?? ''}
                     className="w-full h-full object-cover"
                   />
@@ -328,7 +391,7 @@ export default function DashboardPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-serif font-extrabold text-[16px] text-foreground">
-                  {profile.display_name ?? profile.full_name ?? user?.fullName}
+                  {formatShortUserName(profile.display_name ?? profile.full_name ?? user?.fullName)}
                 </p>
                 {profile.role && profile.role !== 'user' && (
                   <span className="steami-badge steami-badge-gold text-[10px] uppercase">{profile.role}</span>
@@ -343,17 +406,24 @@ export default function DashboardPage() {
             </div>
 
             {/* Newsletter status */}
-            <div className="shrink-0 flex items-center gap-1.5">
-              {profile.subscribed_newsletter ? (
-                <>
-                  <Bell className="w-3.5 h-3.5 text-steami-green" />
-                  <span className="font-mono text-[10px] text-steami-green uppercase tracking-wider">Subscribed</span>
-                </>
-              ) : (
-                <>
-                  <BellOff className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">No digest</span>
-                </>
+            <div className="shrink-0 flex flex-col items-stretch gap-1.5 sm:items-end">
+              <button
+                onClick={toggleNewsletter}
+                disabled={newsletterLoading}
+                className={`steami-btn text-[10px] px-3 py-2 ${profile.subscribed_newsletter ? 'steami-btn-gold' : ''}`}
+                title={profile.subscribed_newsletter ? 'Unsubscribe from newsletter' : 'Subscribe to newsletter'}
+              >
+                {newsletterLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : profile.subscribed_newsletter ? (
+                  <Bell className="w-3.5 h-3.5" />
+                ) : (
+                  <BellOff className="w-3.5 h-3.5" />
+                )}
+                Newsletter {profile.subscribed_newsletter ? 'Unsubscribe' : 'Subscribe'}
+              </button>
+              {newsletterMessage && (
+                <span className="max-w-[180px] text-right font-mono text-[10px] text-muted-foreground">{newsletterMessage}</span>
               )}
             </div>
 
@@ -431,7 +501,7 @@ export default function DashboardPage() {
           { label: 'SAVED NOTES', value: totalNotes, icon: BookOpen, color: 'steami-gold' },
           { label: 'FIELDS EXPLORED', value: fields, icon: BarChart3, color: 'steami-cyan' },
           {
-            label: 'ARTICLES READ',
+            label: 'NEWS READ',
             value: statsLoading ? '—' : (backendStats?.by_type?.research_article ?? '—'),
             icon: Activity,
             color: 'steami-green',
@@ -548,7 +618,7 @@ export default function DashboardPage() {
                   { metric: 'Research Depth', value: Math.min(100, totalNotes * 15), fullMark: 100 },
                   { metric: 'Field Diversity', value: Math.min(100, fields * 20), fullMark: 100 },
                   { metric: 'Engagement',      value: Math.min(100, (backendStats?.total_events ?? 0) * 5), fullMark: 100 },
-                  { metric: 'Articles',        value: Math.min(100, (backendStats?.by_type?.research_article ?? 0) * 25), fullMark: 100 },
+                  { metric: 'News',            value: Math.min(100, (backendStats?.by_type?.research_article ?? 0) * 25), fullMark: 100 },
                   { metric: 'Explainers',      value: Math.min(100, (backendStats?.by_type?.explainer ?? 0) * 15), fullMark: 100 },
                   { metric: 'Consistency',     value: Math.min(100, Object.keys(backendStats?.by_date ?? {}).length * 14), fullMark: 100 },
                 ]}>
@@ -653,7 +723,7 @@ export default function DashboardPage() {
             {/* Insight progress from insight_stats in dashboard.me */}
             {insightStats && (
               <span className="font-mono text-[11px] text-muted-foreground">
-                {insightStats.articles_with_insight}/{insightStats.articles_total} articles
+                {insightStats.articles_with_insight}/{insightStats.articles_total} news
                 {insightStats.generating && (
                   <span className="ml-1 text-steami-cyan animate-pulse"> · generating…</span>
                 )}
@@ -674,15 +744,15 @@ export default function DashboardPage() {
               <div key={i} className="h-28 bg-muted/20 rounded-lg animate-pulse" />
             ))}
           </div>
-        ) : recentInsights.length === 0 ? (
+        ) : displayedInsights.length === 0 ? (
           <div className="glass-card relative p-8 text-center overflow-hidden">
             <Lightbulb className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
             <p className="font-mono text-[12px] text-muted-foreground">No insights available yet.</p>
-            <p className="text-[13px] text-muted-foreground mt-1">Insights are generated automatically after articles are refreshed.</p>
+            <p className="text-[13px] text-muted-foreground mt-1">Insights are generated automatically after news is refreshed.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {recentInsights.map((insight, idx) => (
+            {displayedInsights.map((insight, idx) => (
               <motion.div
                 key={insight.article_id}
                 initial={{ opacity: 0, y: 10 }}
@@ -726,16 +796,24 @@ export default function DashboardPage() {
                   {insight.source && (
                     <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">{insight.source}</span>
                   )}
-                  {insight.article_url && (
-                    <a
-                      href={insight.article_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-mono text-[10px] text-steami-cyan hover:underline ml-auto"
-                    >
-                      <ExternalLink className="w-3 h-3" /> Source
-                    </a>
-                  )}
+                  <div className="ml-auto flex items-center gap-2">
+                    <PopupLinkPill
+                      type="insight"
+                      id={insight.article_id}
+                      title={insight.title}
+                      className="py-1 px-2"
+                    />
+                    {insight.article_url && (
+                      <a
+                        href={insight.article_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-mono text-[10px] text-steami-cyan hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" /> Source
+                      </a>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -761,7 +839,7 @@ export default function DashboardPage() {
             <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="glass-card relative p-10 text-center overflow-hidden">
               <motion.div className="text-4xl mb-4" animate={{ y: [0, -6, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}>📓</motion.div>
               <p className="font-mono text-sm text-muted-foreground mb-2">No notes saved yet</p>
-              <p className="text-[14px] font-medium text-muted-foreground mb-5">Select text in any Explainer or Research Article to save it here.</p>
+              <p className="text-[14px] font-medium text-muted-foreground mb-5">Select text in any Explainer or Research News item to save it here.</p>
               <div className="flex gap-2 justify-center">
                 <Link to="/" className="steami-btn text-[11px]"><BookOpen className="w-3 h-3" /> EXPLAINERS</Link>
                 <Link to="/research" className="steami-btn steami-btn-gold text-[11px]"><ExternalLink className="w-3 h-3" /> RESEARCH</Link>
@@ -793,7 +871,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Feed — GET /api/articles/for-me + GET /api/articles/refresh/check */}
-        <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, duration: 0.45 }}>
+        <motion.div className="lg:sticky lg:top-24 lg:self-start" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, duration: 0.45 }}>
           <div className="flex items-center justify-between mb-3">
             <div className="steami-section-label mb-0">✦ FOR ME</div>
             {/* New articles badge — from GET /api/articles/refresh/check */}
@@ -826,14 +904,14 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {articlesLoading ? (
                 <div className="glass-card relative p-8 overflow-hidden text-center">
-                  <p className="font-mono text-[12px] text-muted-foreground animate-pulse">Loading articles…</p>
+                  <p className="font-mono text-[12px] text-muted-foreground animate-pulse">Loading news…</p>
                 </div>
               ) : filteredArticles.length === 0 ? (
                 <div className="glass-card relative p-8 overflow-hidden text-center">
-                  <p className="font-mono text-[12px] text-muted-foreground">No articles found.</p>
+                  <p className="font-mono text-[12px] text-muted-foreground">No news found.</p>
                 </div>
               ) : (
-                filteredArticles.slice(0, 10).map((article, idx) => {
+                displayedForMeArticles.map((article, idx) => {
                   const domains = article.matched_domains ?? [];
                   const articleUrl = article.article_url ?? article.url;
                   return (
@@ -881,6 +959,14 @@ export default function DashboardPage() {
                     </motion.div>
                   );
                 })
+              )}
+              {!articlesLoading && filteredArticles.length > displayedForMeArticles.length && (
+                <Link
+                  to="/research"
+                  className="steami-btn text-[11px] w-full flex items-center justify-center gap-1 mt-3"
+                >
+                  VIEW MORE <ChevronRight className="w-3 h-3" />
+                </Link>
               )}
             </div>
           </AnimatePresence>

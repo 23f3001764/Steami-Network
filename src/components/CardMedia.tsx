@@ -20,14 +20,17 @@ interface CardMediaProps {
 export function CardMedia({
   src,
   alt,
-  height = 200,
+  height,
   children,
   className = '',
 }: CardMediaProps) {
   const isLight = useThemeStore((s) => s.theme === 'light');
 
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{ height }}>
+    <div 
+      className={`relative overflow-hidden ${className} ${!height ? 'aspect-video sm:aspect-[4/3]' : ''}`} 
+      style={height ? { height } : {}}
+    >
       <motion.div
         className="w-full h-full"
         whileHover={{ scale: 1.06 }}
@@ -39,7 +42,7 @@ export function CardMedia({
           loading="lazy"
           width={768}
           height={512}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain bg-black/5 dark:bg-white/5"
         />
       </motion.div>
       {/* Inner shadow + fade overlay */}

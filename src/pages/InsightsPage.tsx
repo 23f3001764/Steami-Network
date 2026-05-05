@@ -310,7 +310,7 @@ export default function InsightsPage() {
               AI Insights
             </h1>
             <p className="text-[17px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              AI-generated analysis and key takeaways from the latest STEM research and articles.
+              AI-generated analysis and key takeaways from the latest STEM research and news.
             </p>
           </div>
           <motion.button
@@ -389,14 +389,18 @@ export default function InsightsPage() {
         transition={{ delay: 0.1 }}
       >
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[260px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
           <input
             type="text"
             placeholder="Search insights…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 bg-transparent border border-steami-cyan/20 rounded-md font-mono text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-steami-cyan/50 transition-colors"
+            className="w-full min-h-11 rounded-lg border pl-10 pr-4 py-2.5 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/80 outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45"
+            style={{
+              background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8, 18, 42, 0.96)',
+              borderColor: isLight ? 'rgba(37, 99, 235, 0.42)' : 'rgba(111, 168, 255, 0.38)',
+            }}
           />
         </div>
 
@@ -452,7 +456,7 @@ export default function InsightsPage() {
           </p>
           <p className="text-[13px] text-muted-foreground">
             {insights.length === 0
-              ? 'Insights are generated automatically after articles are refreshed by an admin.'
+              ? 'Insights are generated automatically after news is refreshed by an admin.'
               : 'Try clearing the search or domain filter.'}
           </p>
           {search || domainFilter ? (

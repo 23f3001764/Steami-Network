@@ -142,11 +142,29 @@
     font-family: var(--font-sans);
     line-height: 1.6;
     min-height: 100vh;
+    overflow-x: clip;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
     transition: background 0.5s ease, color 0.3s ease;
   }
   
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
+    width: 100%;
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: clip;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
   }
 
   [data-theme="light"] body {
@@ -281,6 +299,10 @@
     align-items: center;
     gap: 8px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    max-width: 100%;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
   }
 
   [data-theme="light"] .steami-btn {
@@ -503,4 +525,19 @@
     animation-duration: 0.01ms !important;
   }
   [class*="svg-"] { animation: none !important; }
+}
+
+@media (max-width: 640px) {
+  .glass-card:hover {
+    transform: none;
+  }
+
+  .steami-heading {
+    overflow-wrap: anywhere;
+  }
+
+  .steami-badge {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
 }

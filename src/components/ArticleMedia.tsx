@@ -26,12 +26,12 @@ export function ArticleMedia({ src, alt, field, className = '' }: ArticleMediaPr
           : '1px solid rgba(99,179,237,0.14)',
       }}
     >
-      {/* Image container */}
-      <div className="relative overflow-hidden aspect-[16/10]">
+      {/* Image container with flexible aspect ratio */}
+      <div className="relative overflow-hidden aspect-video sm:aspect-[4/3] lg:aspect-[16/10]">
         <img
           src={src}
           alt={alt}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain bg-black/5 dark:bg-white/5"
           width={768}
           height={512}
         />

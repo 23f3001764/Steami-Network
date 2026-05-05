@@ -68,16 +68,16 @@ export default function ExplorePage() {
         animate="visible"
       >
         {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <div className="relative w-full sm:flex-1 sm:max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search explainers..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg text-[14px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-steami-cyan/30 transition-shadow"
+            className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[15px] font-medium text-foreground placeholder:text-muted-foreground/80 outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45"
             style={{
-              background: isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(10, 18, 42, 0.7)',
-              border: isLight ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid rgba(255,255,255,0.07)',
+              background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8, 18, 42, 0.96)',
+              border: isLight ? '1px solid rgba(37, 99, 235, 0.42)' : '1px solid rgba(111, 168, 255, 0.38)',
             }}
           />
         </div>

@@ -115,9 +115,9 @@ export default function ResearchPage() {
       <ScrollNavigator />
 
       <motion.div className="mb-6" variants={fadeInUp} initial="hidden" animate="visible">
-        <h1 className="steami-heading text-3xl md:text-4xl mb-3"> Research Articles</h1>
-        <p className="text-[18px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-          Deep research environment across {activeFields.length} scientific fields. Browse by category and click articles for full study.
+        <h1 className="steami-heading text-3xl md:text-4xl mb-3">Research News</h1>
+        <p className="text-[16px] sm:text-[18px] font-medium text-muted-foreground max-w-xl leading-relaxed">
+          Deep research environment across {activeFields.length} scientific fields. Browse by category and click news for the full study.
         </p>
       </motion.div>
 
@@ -128,7 +128,7 @@ export default function ResearchPage() {
       )}
       {loadingResearch && (
         <div className="py-20 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-          Loading backend research articles...
+          Loading backend research news...
         </div>
       )}
 
@@ -139,16 +139,16 @@ export default function ResearchPage() {
         initial="hidden"
         animate="visible"
       >
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <div className="relative w-full sm:flex-1 sm:max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search articles..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg text-[14px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-steami-cyan/30 transition-shadow"
+            placeholder="Search news..."
+            className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[15px] font-medium text-foreground placeholder:text-muted-foreground/80 outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45"
             style={{
-              background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(10, 18, 42, 0.7)',
-              border: isLight ? '1px solid rgba(147,197,253,0.35)' : '1px solid rgba(255,255,255,0.07)',
+              background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8, 18, 42, 0.96)',
+              border: isLight ? '1px solid rgba(37, 99, 235, 0.42)' : '1px solid rgba(111, 168, 255, 0.38)',
             }}
           />
         </div>
@@ -158,7 +158,7 @@ export default function ResearchPage() {
             <button
               key={f}
               onClick={() => setActiveField(f)}
-              className={`px-3 py-1.5 rounded-md text-[16px] font-mono tracking-wider uppercase transition-all duration-200 ${activeField === f
+              className={`px-3 py-1.5 rounded-md text-[12px] sm:text-[14px] font-mono tracking-wider uppercase transition-all duration-200 ${activeField === f
                   ? 'text-steami-cyan'
                   : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -185,7 +185,7 @@ export default function ResearchPage() {
 
       {filtered.length === 0 && (
         <div className="text-center py-20 text-muted-foreground text-sm font-medium">
-          No articles found matching your criteria.
+          No news found matching your criteria.
         </div>
       )}
 
@@ -226,14 +226,14 @@ function CategorySection({
   return (
     <MotionWrapper className="mb-8">
       <div className="steami-section-label mb-3">
-        {FIELD_ICONS[field]} {field} — {items.length} ARTICLES
+        {FIELD_ICONS[field]} {field} — {items.length} NEWS
       </div>
       <div className="relative group">
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => scroll(-1)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-steami-cyan transition-colors opacity-0 group-hover:opacity-100"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 hidden sm:flex w-8 h-8 rounded-full items-center justify-center text-muted-foreground hover:text-steami-cyan transition-colors opacity-0 group-hover:opacity-100"
           style={{
             background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(3, 8, 20, 0.9)',
             border: isLight ? '1px solid rgba(147,197,253,0.4)' : '1px solid rgba(99,179,237,0.2)',
@@ -256,8 +256,8 @@ function CategorySection({
                 transition={{ delay: idx * 0.05 }}
                 whileHover={{ y: -3, boxShadow: isLight ? '0 12px 32px -8px rgba(147,197,253,0.35)' : '0 12px 32px -8px rgba(99,179,237,0.15)' }}
                 whileTap={cardTap}
-                className="glass-card relative p-0 cursor-pointer overflow-hidden shrink-0 snap-start group/card flex flex-row"
-                style={{ width: 520, minHeight: 240 }}
+                className="glass-card relative p-0 cursor-pointer overflow-hidden shrink-0 snap-start group/card flex flex-col sm:flex-row"
+                style={{ width: 'min(520px, calc(100vw - 40px))', minHeight: 240 }}
                 onClick={() => onSelect(article)}
               >
                 {/* Left accent bar (vertical) */}
@@ -271,8 +271,8 @@ function CategorySection({
                 {/* LEFT — Content Area (60%) */}
                 <div className="flex-[3] p-5 flex flex-col justify-between min-w-0">
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className={`steami-badge steami-badge-${FIELD_COLORS[article.field]} text-[16px] inline-block`}>
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <span className={`steami-badge steami-badge-${FIELD_COLORS[article.field]} text-[11px] sm:text-[13px] inline-block`}>
                         {article.field}
                       </span>
                       <ShareMenu title={article.title} popupType="research" popupId={article.id} compact className="opacity-0 group-hover/card:opacity-100 transition-opacity" />
@@ -301,7 +301,7 @@ function CategorySection({
                 />
 
                 {/* RIGHT — Image Window (40%) */}
-                <div className="flex-[2] relative overflow-hidden">
+                <div className="flex-[2] relative overflow-hidden min-h-40 sm:min-h-0">
                   <motion.div
                     className="w-full h-full"
                     whileHover={{ scale: 1.05 }}
@@ -333,7 +333,7 @@ function CategorySection({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => scroll(1)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-steami-cyan transition-colors opacity-0 group-hover:opacity-100"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 hidden sm:flex w-8 h-8 rounded-full items-center justify-center text-muted-foreground hover:text-steami-cyan transition-colors opacity-0 group-hover:opacity-100"
           style={{
             background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(3, 8, 20, 0.9)',
             border: isLight ? '1px solid rgba(147,197,253,0.4)' : '1px solid rgba(99,179,237,0.2)',
@@ -377,7 +377,7 @@ function ArticleModal({
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="fixed inset-0 z-[200] flex p-3 md:p-4"
+      className="fixed inset-0 z-[200] flex p-2 sm:p-3 md:p-4"
       style={{
         background: isLight ? 'rgba(186,230,253,0.6)' : 'rgba(2, 8, 18, 0.85)',
         backdropFilter: 'blur(8px)',
@@ -389,7 +389,7 @@ function ArticleModal({
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="flex flex-1 max-w-[1200px] mx-auto gap-0 md:gap-4 max-h-[92vh]"
+        className="flex w-full flex-1 max-w-[1200px] mx-auto gap-0 md:gap-4 max-h-[94svh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── LEFT PANEL: Scrollable Content ── */}
@@ -432,7 +432,7 @@ function ArticleModal({
 
           {/* Sticky header bar */}
           <div
-            className="sticky top-0 z-10 px-6 py-3 flex items-center justify-between border-b border-foreground/5"
+            className="sticky top-0 z-10 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-foreground/5"
             style={{
               background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(5, 14, 32, 0.96)',
               backdropFilter: 'blur(20px)',
@@ -442,7 +442,7 @@ function ArticleModal({
               <span className={`steami-badge steami-badge-${FIELD_COLORS[article.field]}`}>{article.field}</span>
               <span className="font-mono text-[11px] text-muted-foreground">{article.readTime}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
               <PopupLinkPill type="research" id={article.id} />
               <ShareMenu title={article.title} popupType="research" popupId={article.id} compact />
               <motion.button
@@ -461,7 +461,7 @@ function ArticleModal({
           </div>
 
           {/* Article body */}
-          <div className="p-6 md:p-7">
+          <div className="p-4 sm:p-6 md:p-7">
             {/* Key Findings — inline on mobile */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -491,7 +491,7 @@ function ArticleModal({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
             >
-              <h2 className="steami-heading text-2xl flex-1">{article.title}</h2>
+              <h2 className="steami-heading text-xl sm:text-2xl flex-1 min-w-0">{article.title}</h2>
               <CardSvgVisual field={article.field} variant="modal" className="hidden sm:flex lg:hidden" />
             </motion.div>
             <div className="flex items-center gap-3 mb-5 font-mono text-[11px] text-muted-foreground">
@@ -605,7 +605,7 @@ function ArticleModal({
               compact
             />
             <div className="mt-3 pt-3 border-t border-steami-cyan/10">
-              <div className="font-mono text-[11px] text-muted-foreground mb-2">RELATED ARTICLES</div>
+              <div className="font-mono text-[11px] text-muted-foreground mb-2">RELATED NEWS</div>
               {relatedPool.filter(a => a.id !== article.id && a.field === article.field).slice(0, 2).map(a => (
                 <motion.button
                   key={a.id}
@@ -632,7 +632,7 @@ function ArticleModal({
               <FileText className="w-3 h-3" /> RESEARCH DIARY
             </div>
             {diary.length === 0 ? (
-              <p className="font-mono text-[11px] text-muted-foreground">Select text in any article to save notes here.</p>
+              <p className="font-mono text-[11px] text-muted-foreground">Select text in any news item to save notes here.</p>
             ) : (
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {diary.slice(0, 5).map((entry) => (

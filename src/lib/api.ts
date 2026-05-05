@@ -290,4 +290,21 @@ export const api = {
     conversations: (params?: Record<string, unknown>) => apiRequest(`/api/chat/conversations${buildQuery(params)}`),
     unread: (params?: Record<string, unknown>) => apiRequest(`/api/chat/unread${buildQuery(params)}`),
   },
+
+  /**
+   * Notifications — /api/notifications/*
+   * Public endpoint — no auth required.
+   *
+   * latest(since?, limit?)
+   *   GET /api/notifications/latest?since=<ISO-8601>&limit=<n>
+   *   Returns new Explainers, Research Articles, and Blog Posts added after `since`.
+   *   `since` defaults to 7 days ago on the server if omitted.
+   *   `limit` is per content-type, 1–50 (default 10).
+   *
+   *   Response: { total: number; since: string; items: NotificationItem[] }
+   */
+  notifications: {
+    latest: (since?: string | null, limit = 20) =>
+      apiRequest(`/api/notifications/latest${buildQuery({ since: since ?? undefined, limit })}`),
+  },
 };

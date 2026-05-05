@@ -4,6 +4,7 @@ import { Check, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useNavigate } from 'react-router-dom';
+import { formatShortUserName } from '@/lib/user-display';
 
 const TOPICS = [
   { id: 'QUANTUM PHYSICS', label: 'Quantum Physics', desc: 'Superposition, entanglement, qubits', icon: '️' },
@@ -43,7 +44,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -57,7 +58,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           />
 
           <motion.div
-            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl"
+            className="relative w-full max-w-2xl max-h-[94svh] overflow-y-auto rounded-2xl"
             style={{
               background: isLight ? 'rgba(255,255,255,0.88)' : 'rgba(8,16,38,0.94)',
               backdropFilter: 'blur(40px) saturate(160%)',
@@ -71,7 +72,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
             exit={{ scale: 0.9, opacity: 0, y: 30 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
           >
-            <div className="px-8 pt-8 pb-4 text-center">
+            <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-4 text-center">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -87,12 +88,12 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                 <Sparkles className="w-6 h-6" style={{ color: 'hsl(var(--steami-cyan))' }} />
               </motion.div>
               <h2 className="steami-heading text-2xl mb-2">Choose Your Interests</h2>
-              <p className="text-[18px] text-muted-foreground font-medium max-w-md mx-auto">
-                Welcome, <span className="text-foreground font-semibold">{user?.fullName}</span>! Select topics to personalize your feed. Pick at least 3 for best results.
+              <p className="text-[15px] sm:text-[18px] text-muted-foreground font-medium max-w-md mx-auto">
+                Welcome, <span className="text-foreground font-semibold">{formatShortUserName(user?.fullName)}</span>! Select topics to personalize your feed. Pick at least 3 for best results.
               </p>
             </div>
 
-            <div className="px-8 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="px-4 sm:px-8 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {TOPICS.map((topic, i) => {
                 const isSelected = selected.includes(topic.id);
                 return (
@@ -138,11 +139,11 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
               })}
             </div>
 
-            <div className="px-8 pb-8 pt-4 flex items-center justify-between">
+            <div className="px-4 sm:px-8 pb-6 sm:pb-8 pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <span className="font-mono text-[11px] text-muted-foreground">
                 {selected.length} selected {selected.length < 3 && '· 3+ recommended'}
               </span>
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

@@ -26,6 +26,8 @@ interface UserProfile {
   website?: string;
   profession?: string;
   avatar_url?: string;
+  google_picture?: string;   // Google OAuth profile photo fallback
+  auth_provider?: string;    // "google" | "email" — controls which sections to show
   interests?: string[];
   role?: string;
   subscribe_email?: boolean;
@@ -245,7 +247,8 @@ export default function ProfilePage() {
         setLocation(p.location ?? '');
         setWebsite(p.website ?? '');
         setProfession(p.profession ?? '');
-        setAvatarUrl(p.avatar_url ?? '');
+        // Prefer custom avatar_url; fall back to Google profile picture for OAuth users
+        setAvatarUrl(p.avatar_url ?? p.google_picture ?? '');
       })
       .catch(() => showToast('Failed to load profile', 'error'))
       .finally(() => setLoading(false));
@@ -264,8 +267,22 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      await api.profile.update({ full_name: fullName, username, bio, location, website, profession });
-      setProfile((p) => p ? { ...p, full_name: fullName, username, bio, location, website, profession } : p);
+      // Only send fields that are non-empty (avoids 400 "no fields to update" / empty string validation errors)
+      const updates: Record<string, string> = {};
+      if (fullName.trim())   updates.full_name  = fullName.trim();
+      if (username.trim())   updates.username   = username.trim();
+      if (bio.trim())        updates.bio        = bio.trim();
+      if (location.trim())   updates.location   = location.trim();
+      if (website.trim())    updates.website    = website.trim();
+      if (profession.trim()) updates.profession = profession.trim();
+
+      if (Object.keys(updates).length === 0) {
+        showToast('No changes to save', 'error');
+        return;
+      }
+
+      await api.profile.update(updates);
+      setProfile((p) => p ? { ...p, ...updates } : p);
       showToast('Profile updated successfully');
     } catch {
       showToast('Failed to update profile', 'error');
@@ -307,6 +324,9 @@ export default function ProfilePage() {
   };
 
   const handleChangePassword = async () => {
+    if (profile?.auth_provider === 'google') {
+      showToast('Google accounts do not use a password', 'error'); return;
+    }
     if (newPw !== confirmPw) { showToast('Passwords do not match', 'error'); return; }
     if (newPw.length < 8) { showToast('Password must be ≥8 chars with uppercase, lowercase and digit', 'error'); return; }
     setSaving(true);
@@ -325,7 +345,7 @@ export default function ProfilePage() {
     if (!newEmail.includes('@')) { showToast('Enter a valid email', 'error'); return; }
     setSaving(true);
     try {
-      await api.profile.changeEmail({ email: newEmail, password: emailPw });
+      await api.profile.changeEmail({ new_email: newEmail, current_password: emailPw });
       setNewEmail(''); setEmailPw('');
       showToast('Email updated — please log in again');
     } catch {
@@ -336,6 +356,9 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
+    if (profile?.auth_provider === 'google') {
+      showToast('Google accounts cannot be deleted here — contact support', 'error'); return;
+    }
     if (!deletePw) { showToast('Enter your password to confirm', 'error'); return; }
     setSaving(true);
     try {
@@ -506,8 +529,8 @@ export default function ProfilePage() {
               <div className="flex flex-col items-center gap-3 shrink-0">
                 <div className="relative group">
                   <div className="w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-border/40 group-hover:ring-steami-cyan/40 transition-all">
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    {(avatarUrl || profile?.google_picture) ? (
+                      <img src={avatarUrl || profile?.google_picture} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-steami-cyan/20 to-steami-magenta/20">
                         <span className="font-mono text-2xl font-bold text-steami-cyan">{initials}</span>
@@ -599,25 +622,36 @@ export default function ProfilePage() {
 
           {/* ── Security: Change Password ── */}
           <Section title="CHANGE PASSWORD" delay={0.1}>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Current Password" icon={Lock} value={currentPw} onChange={setCurrentPw} type="password" placeholder="••••••••" />
-              <Field label="New Password" icon={Lock} value={newPw} onChange={setNewPw} type="password" placeholder="••••••••" />
-              <Field label="Confirm New Password" icon={Lock} value={confirmPw} onChange={setConfirmPw} type="password" placeholder="••••••••" />
-            </div>
-            <p className="font-mono text-[10px] text-muted-foreground mt-2">
-              Min. 8 chars · must include uppercase, lowercase and a digit.
-            </p>
-            <div className="mt-4 flex justify-end">
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={handleChangePassword}
-                disabled={saving || !currentPw || !newPw || !confirmPw}
-                className="steami-btn text-[11px] flex items-center gap-2 px-5 py-2.5 disabled:opacity-40"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                UPDATE PASSWORD
-              </motion.button>
-            </div>
+            {profile?.auth_provider === 'google' ? (
+              <div className="flex items-center gap-3 p-4 rounded-xl border border-steami-gold/20 bg-steami-gold/5">
+                <Shield className="w-4 h-4 text-steami-gold shrink-0" />
+                <p className="font-mono text-[12px] text-muted-foreground">
+                  Your account uses <span className="text-steami-gold font-semibold">Google Sign-In</span>. Password management is handled by Google.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Field label="Current Password" icon={Lock} value={currentPw} onChange={setCurrentPw} type="password" placeholder="••••••••" />
+                  <Field label="New Password" icon={Lock} value={newPw} onChange={setNewPw} type="password" placeholder="••••••••" />
+                  <Field label="Confirm New Password" icon={Lock} value={confirmPw} onChange={setConfirmPw} type="password" placeholder="••••••••" />
+                </div>
+                <p className="font-mono text-[10px] text-muted-foreground mt-2">
+                  Min. 8 chars · must include uppercase, lowercase and a digit.
+                </p>
+                <div className="mt-4 flex justify-end">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    onClick={handleChangePassword}
+                    disabled={saving || !currentPw || !newPw || !confirmPw}
+                    className="steami-btn text-[11px] flex items-center gap-2 px-5 py-2.5 disabled:opacity-40"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    UPDATE PASSWORD
+                  </motion.button>
+                </div>
+              </>
+            )}
           </Section>
 
           {/* ── Security: Change Email ── */}

@@ -206,7 +206,7 @@ export function SubjectRadarChart() {
                 <TrendingUp className="w-3 h-3 shrink-0" />
                 {hasActivity && data?.top_subject
                   ? `Strongest subject: ${shortLabel(data.top_subject)} · ${data.total_events_analysed} events analysed`
-                  : 'Open explainers, articles, and insights to build your subject profile.'}
+                  : 'Open explainers, news, and insights to build your subject profile.'}
               </motion.div>
 
               {/* Interest legend dots */}
