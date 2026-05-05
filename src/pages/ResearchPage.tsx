@@ -140,12 +140,12 @@ export default function ResearchPage() {
         animate="visible"
       >
         <div className="relative w-full sm:flex-1 sm:max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan pointer-events-none z-10" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search news..."
-            className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[15px] font-medium text-foreground placeholder:text-muted-foreground/80 outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45"
+            className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[15px] font-medium text-foreground bg-white dark:bg-[#08122a] border border-blue-400/40 dark:border-blue-300/30 placeholder:text-muted-foreground/80 outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45 focus:border-steami-cyan/60"
             style={{
               background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8, 18, 42, 0.96)',
               border: isLight ? '1px solid rgba(37, 99, 235, 0.42)' : '1px solid rgba(111, 168, 255, 0.38)',
