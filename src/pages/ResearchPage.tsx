@@ -134,25 +134,28 @@ export default function ResearchPage() {
 
       {/* Filters */}
       <motion.div
-        className="flex flex-col sm:flex-row gap-4 mb-8"
+        className="flex flex-col gap-3 mb-8"
         variants={fadeInUp}
         initial="hidden"
         animate="visible"
       >
-        <div className="relative w-full sm:flex-1 sm:max-w-md">
+        {/* Search bar — own full-width row so it never gets squeezed */}
+        <div className="relative w-full max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan pointer-events-none z-10" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search news..."
-            className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[15px] font-medium text-foreground bg-white dark:bg-[#08122a] border border-blue-400/40 dark:border-blue-300/30 placeholder:text-muted-foreground/80 outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45 focus:border-steami-cyan/60"
+            className="block w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[15px] font-medium outline-none shadow-[0_8px_28px_rgba(0,0,0,0.16)] transition focus:ring-2 focus:ring-steami-cyan/45"
             style={{
               background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8, 18, 42, 0.96)',
               border: isLight ? '1px solid rgba(37, 99, 235, 0.42)' : '1px solid rgba(111, 168, 255, 0.38)',
+              color: isLight ? '#0f172a' : '#e2e8f0',
             }}
           />
         </div>
 
+        {/* Field filter pills — separate row, wraps freely */}
         <div className="flex flex-wrap gap-1.5">
           {allFields.map((f) => (
             <button
