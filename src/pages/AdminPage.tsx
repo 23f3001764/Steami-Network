@@ -165,6 +165,9 @@ export default function AdminPage() {
   // Newsletter test
   const [testEmail, setTestEmail] = useState('');
   const [testSendStatus, setTestSendStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+  // Newsletter send-custom
+  const [sendCustomStatus, setSendCustomStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [sendCustomLoading, setSendCustomLoading] = useState(false);
   // Event log filters (supported by GET /api/dashboard/admin/events)
   const [eventTypeFilter, setEventTypeFilter] = useState('');
   const [eventUidFilter, setEventUidFilter] = useState('');
@@ -512,17 +515,36 @@ export default function AdminPage() {
             >
               <Send className="w-3 h-3" /> Send test
             </button>
-            {/* POST /api/newsletter/send-daily?limit=5 */}
+            {/* POST /api/newsletter/send-custom — loads saved draft from MongoDB and sends to all subscribers */}
             <button
-              className="steami-btn text-[11px]"
-              onClick={() => api.newsletter.sendDaily(5)}
+              className="steami-btn text-[11px] flex items-center gap-1.5"
+              disabled={sendCustomLoading}
+              onClick={async () => {
+                if (!window.confirm('Send the saved newsletter draft to ALL subscribers?')) return;
+                setSendCustomStatus(null);
+                setSendCustomLoading(true);
+                try {
+                  const res = await api.newsletter.sendCustom();
+                  setSendCustomStatus({ ok: true, msg: `Sent to ${res?.sent ?? '?'} subscribers` });
+                } catch (e: any) {
+                  setSendCustomStatus({ ok: false, msg: e.message || 'Send failed' });
+                } finally {
+                  setSendCustomLoading(false);
+                }
+              }}
             >
-              Send daily digest
+              <Send className={`w-3 h-3 ${sendCustomLoading ? 'animate-pulse' : ''}`} />
+              {sendCustomLoading ? 'Sending…' : 'Send custom newsletter'}
             </button>
           </div>
           {testSendStatus && (
             <p className={`mt-2 font-mono text-[11px] ${testSendStatus.ok ? 'text-green-400' : 'text-red-400'}`}>
               {testSendStatus.ok ? '✓' : '✕'} {testSendStatus.msg}
+            </p>
+          )}
+          {sendCustomStatus && (
+            <p className={`mt-2 font-mono text-[11px] ${sendCustomStatus.ok ? 'text-green-400' : 'text-red-400'}`}>
+              {sendCustomStatus.ok ? '✓' : '✕'} {sendCustomStatus.msg}
             </p>
           )}
         </ApiStatePanel>
