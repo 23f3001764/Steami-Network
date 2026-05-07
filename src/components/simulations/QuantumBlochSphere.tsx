@@ -210,7 +210,7 @@ export function QuantumBlochSphere() {
       </div>
 
       <p className="mt-3 font-mono text-[11px] text-muted-foreground tracking-wide leading-relaxed">
-        ◆ DRAG to rotate the Bloch sphere. The gold vector represents the qubit state |ψ⟩ = cos(θ/2)|0⟩ + e^(iφ)sin(θ/2)|1⟩. 
+        ◆ DRAG to rotate the Bloch sphere. The gold vector represents the qubit state |ψ⟩ = cos(θ/2)|0⟩ + e^(iφ)sin(θ/2)|1⟩.
         The classical bit (red cube, right) can only be |0⟩ or |1⟩ — the qubit can be anywhere on the sphere.
       </p>
     </div>

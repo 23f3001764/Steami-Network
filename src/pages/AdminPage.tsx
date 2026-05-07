@@ -164,12 +164,15 @@ export default function AdminPage() {
   const [ip, setIp] = useState('');
   // Newsletter test
   const [testEmail, setTestEmail] = useState('');
+  const [testSendStatus, setTestSendStatus] = useState<{ msg: string; ok: boolean } | null>(null);
   // Event log filters (supported by GET /api/dashboard/admin/events)
   const [eventTypeFilter, setEventTypeFilter] = useState('');
   const [eventUidFilter, setEventUidFilter] = useState('');
   const [eventLimit, setEventLimit] = useState(50);
 
   const isAdmin = user?.role === 'admin';
+  const isMod   = user?.role === 'mod' || user?.role === 'moderator';
+  const canAccess = isAdmin || isMod;
 
   const load = async (setter: (s: LoadState) => void, fn: () => Promise<any>) => {
     setter({ data: null, loading: true, error: '' });
@@ -190,10 +193,12 @@ export default function AdminPage() {
     );
 
   const refreshAll = () => {
-    load(setDashboard, api.dashboard.admin);
-    loadEvents();
-    load(setUsers, api.auth.users);
-    load(setSecurity, api.security.stats);
+    if (isAdmin) {
+      load(setDashboard, api.dashboard.admin);
+      loadEvents();
+      load(setUsers, api.auth.users);
+      load(setSecurity, api.security.stats);
+    }
     load(setNewsletter, api.newsletter.recipients);
     api.insights.status().then(setInsightStatus).catch(() => undefined);
   };
@@ -217,8 +222,8 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (isAdmin) refreshAll();
-  }, [isAdmin]);
+    if (canAccess) refreshAll();
+  }, [canAccess]);
 
   // ── Derived / normalised data ──────────────────────────────────────────────
 
@@ -254,14 +259,14 @@ export default function AdminPage() {
 
   // ── Access guard ──────────────────────────────────────────────────────────
 
-  if (!isAdmin) {
+  if (!canAccess) {
     return (
       <SteamiLayout>
         <div className="glass-card p-8 text-center">
           <Shield className="w-8 h-8 text-steami-gold mx-auto mb-3" />
           <h1 className="steami-heading text-2xl mb-2">Admin Access Required</h1>
           <p className="text-muted-foreground text-[14px]">
-            Sign in with an admin account to manage users, security, dashboards, and newsletters.
+            Sign in with an admin or mod account to manage users, security, dashboards, and newsletters.
           </p>
         </div>
       </SteamiLayout>
@@ -273,15 +278,20 @@ export default function AdminPage() {
   return (
     <SteamiLayout>
       <div className="mb-8">
-        <h1 className="steami-heading text-3xl md:text-4xl mb-3">Admin Control Room</h1>
+        <h1 className="steami-heading text-3xl md:text-4xl mb-3">
+          {isAdmin ? 'Admin Control Room' : 'Mod Control Room'}
+        </h1>
         <p className="text-[15px] text-muted-foreground max-w-2xl">
-          Platform metrics, user roles, newsletter operations, DDoS controls, and popup event telemetry.
+          {isAdmin
+            ? 'Platform metrics, user roles, newsletter operations, DDoS controls, and popup event telemetry.'
+            : 'Newsletter recipients, test sends, news refresh, and insight pipeline.'}
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* ── Dashboard stats: GET /api/dashboard/admin ───────────────────── */}
+        {isAdmin && (
         <ApiStatePanel
           title="Dashboard — Platform Stats"
           {...dashboard}
@@ -319,8 +329,10 @@ export default function AdminPage() {
             </>
           )}
         </ApiStatePanel>
+        )}
 
         {/* ── Security: GET /api/security/stats ───────────────────────────── */}
+        {isAdmin && (
         <ApiStatePanel
           title="DDoS Protection"
           {...security}
@@ -389,8 +401,10 @@ export default function AdminPage() {
             </button>
           </div>
         </ApiStatePanel>
+        )}
 
         {/* ── Users: GET /api/auth/users ───────────────────────────────────── */}
+        {isAdmin && (
         <ApiStatePanel
           title="Users and Roles"
           {...users}
@@ -458,6 +472,7 @@ export default function AdminPage() {
             })}
           </div>
         </ApiStatePanel>
+        )}
 
         {/* ── Newsletter: GET /api/newsletter/recipients ───────────────────── */}
         <ApiStatePanel
@@ -477,14 +492,23 @@ export default function AdminPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <input
               value={testEmail}
-              onChange={(e) => setTestEmail(e.target.value)}
+              onChange={(e) => { setTestEmail(e.target.value); setTestSendStatus(null); }}
               placeholder="test@example.com"
               className="min-w-0 flex-1 rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"
             />
             {/* POST /api/newsletter/test  body: { to_email, subject? } */}
             <button
               className="steami-btn text-[11px]"
-              onClick={() => testEmail && api.newsletter.test(testEmail)}
+              onClick={async () => {
+                if (!testEmail) return;
+                setTestSendStatus(null);
+                try {
+                  await api.newsletter.test(testEmail);
+                  setTestSendStatus({ ok: true, msg: `Test sent to ${testEmail}` });
+                } catch (e: any) {
+                  setTestSendStatus({ ok: false, msg: e.message || 'Send failed' });
+                }
+              }}
             >
               <Send className="w-3 h-3" /> Send test
             </button>
@@ -496,6 +520,11 @@ export default function AdminPage() {
               Send daily digest
             </button>
           </div>
+          {testSendStatus && (
+            <p className={`mt-2 font-mono text-[11px] ${testSendStatus.ok ? 'text-green-400' : 'text-red-400'}`}>
+              {testSendStatus.ok ? '✓' : '✕'} {testSendStatus.msg}
+            </p>
+          )}
         </ApiStatePanel>
 
         {/* ── Article Refresh: POST /api/articles/refresh ──────────────────── */}
@@ -566,6 +595,7 @@ export default function AdminPage() {
         </div>
 
         {/* ── Event log: GET /api/dashboard/admin/events ───────────────────── */}
+        {isAdmin && (
         <div className="lg:col-span-2">
           <ApiStatePanel
             title="Popup Event Log"
@@ -611,6 +641,7 @@ export default function AdminPage() {
             </div>
           </ApiStatePanel>
         </div>
+        )}
 
       </div>
     </SteamiLayout>

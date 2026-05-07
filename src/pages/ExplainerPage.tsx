@@ -14,7 +14,7 @@ import { ScrollNavigator } from '@/components/ScrollNavigator';
 import { explainers } from '@/data/explainers';
 import { explainerImages } from '@/data/explainer-images';
 import { staggerContainer, cardVariants, cardHover, cardTap, overlayVariants, modalVariants, fadeInUp } from '@/lib/motion';
-import { ChevronLeft, ChevronRight, Play, Pause, X, Lightbulb, ArrowRight, Network, BookOpen, Cpu, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Pause, X, Lightbulb, ArrowRight, Network, BookOpen, Cpu, Zap, ExternalLink, Award, FileText } from 'lucide-react';
 import { useThemeStore } from '@/stores/theme-store';
 import { api, apiAssetUrl } from '@/lib/api';
 
@@ -377,8 +377,8 @@ export default function ExplainerPage() {
                 ref={contentRef}
                 className="flex-1 min-w-0 overflow-y-auto rounded-xl md:rounded-r-none md:rounded-l-xl"
                 style={{
-                  background: isLight ? 'rgba(255,255,255,0.94)' : 'rgba(5,14,32,0.94)',
-                  backdropFilter: 'blur(24px) saturate(160%)',
+                  background: isLight ? '#FFFFFF' : '#050E20',
+                  backdropFilter: 'none',
                   border: isLight ? '1px solid rgba(147,197,253,0.35)' : '1px solid rgba(255,255,255,0.07)',
                   boxShadow: isLight ? '0 25px 50px -12px rgba(147,197,253,0.3)' : '0 25px 50px -12px rgba(0,0,0,0.6)',
                 }}
@@ -573,6 +573,76 @@ export default function ExplainerPage() {
                       {selected.impact}
                     </ContentBlock>
                   )}
+
+                  {/* References / Credentials — mobile only (sidebar handles desktop) */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="rounded-xl p-5 mt-8 lg:hidden"
+                    style={{
+                      background: isLight ? 'rgba(255,255,255,0.5)' : 'rgba(5,14,32,0.5)',
+                      border: isLight ? '1px solid rgba(147,197,253,0.35)' : '1px solid rgba(111,168,255,0.14)',
+                    }}
+                  >
+                    <div className="font-mono text-[11px] tracking-wider uppercase text-steami-cyan mb-3 flex items-center gap-2">
+                      <FileText className="w-3 h-3" /> REFERENCES / CREDENTIALS
+                    </div>
+                    {selected.references && selected.references.length > 0 ? (
+                      <div className="space-y-4">
+                        {selected.references.map((ref, i) => (
+                          <div key={i} className="group/ref">
+                            <div className="flex items-start gap-2">
+                              {ref.url ? (
+                                <a 
+                                  href={ref.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="font-serif text-[15px] font-bold text-foreground leading-tight hover:text-steami-cyan transition-colors flex items-center gap-1.5"
+                                >
+                                  {ref.title}
+                                  <ExternalLink className="w-3 h-3 shrink-0 opacity-40" />
+                                </a>
+                              ) : (
+                                <div className="font-serif text-[15px] font-bold text-foreground leading-tight">
+                                  {ref.title}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {ref.author && (
+                                <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-tight">
+                                  {ref.author}
+                                </span>
+                              )}
+                              {ref.type && (
+                                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded border border-steami-cyan/20 text-steami-cyan/70 uppercase">
+                                  {ref.type}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        <div className="group/ref">
+                          <div className="font-serif text-[15px] font-bold text-foreground leading-tight">
+                            Primary Research Source
+                          </div>
+                          <div className="font-mono text-[10px] text-muted-foreground uppercase mt-1">
+                            STEAMI EDITORIAL BOARD
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-steami-cyan/5 border border-steami-cyan/10">
+                          <Award className="w-4 h-4 text-steami-cyan" />
+                          <span className="font-mono text-[10px] text-steami-cyan uppercase tracking-wider">
+                            Verified Credential
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
                 </div>
               </div>
 
@@ -584,7 +654,12 @@ export default function ExplainerPage() {
                 transition={{ delay: 0.2, duration: 0.4 }}
               >
                 {/* Sticky ArticleMedia */}
-                <div className="sticky top-0 z-10">
+                <div 
+                  className="sticky top-0 z-20 pb-3"
+                  style={{
+                    background: isLight ? 'rgba(186,230,253,1)' : 'rgba(2,8,18,1)', 
+                  }}
+                >
                   <ArticleMedia
                     src={getImageUrl(selected.image) || explainerImages[selected.id]}
                     alt={selected.title}
@@ -685,6 +760,74 @@ export default function ExplainerPage() {
                           </motion.button>
                         );
                       })}
+                </div>
+
+                {/* References / Credentials Section */}
+                <div
+                  className="rounded-xl p-4"
+                  style={{
+                    background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(5,14,32,0.88)',
+                    border: isLight ? '1px solid rgba(147,197,253,0.35)' : '1px solid rgba(111,168,255,0.14)',
+                  }}
+                >
+                  <div className="font-mono text-[11px] tracking-wider uppercase text-steami-cyan mb-3 flex items-center gap-2">
+                    <FileText className="w-3 h-3" /> REFERENCES / CREDENTIALS
+                  </div>
+                  
+                  {selected.references && selected.references.length > 0 ? (
+                    <div className="space-y-3">
+                      {selected.references.map((ref, i) => (
+                        <div key={i} className="group/ref">
+                          <div className="flex items-start gap-2">
+                            {ref.url ? (
+                              <a 
+                                href={ref.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="font-serif text-[15px] font-bold text-foreground leading-tight hover:text-steami-cyan transition-colors flex items-center gap-1.5"
+                              >
+                                {ref.title}
+                                <ExternalLink className="w-3 h-3 shrink-0 opacity-40 group-hover/ref:opacity-100" />
+                              </a>
+                            ) : (
+                              <div className="font-serif text-[15px] font-bold text-foreground leading-tight">
+                                {ref.title}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {ref.author && (
+                              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-tight">
+                                {ref.author}
+                              </span>
+                            )}
+                            {ref.type && (
+                              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded border border-steami-cyan/20 text-steami-cyan/70 uppercase">
+                                {ref.type}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <div className="group/ref">
+                        <div className="font-serif text-[15px] font-bold text-foreground leading-tight">
+                          Primary Research Source
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground uppercase mt-1">
+                          STEAMI EDITORIAL BOARD
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-steami-cyan/5 border border-steami-cyan/10">
+                        <Award className="w-4 h-4 text-steami-cyan" />
+                        <span className="font-mono text-[10px] text-steami-cyan uppercase tracking-wider">
+                          Verified Credential
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

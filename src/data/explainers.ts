@@ -11,6 +11,12 @@ export interface Explainer {
   context?: string;
   technicalDetail?: string;
   impact?: string;
+  references?: {
+    title: string;
+    url?: string;
+    author?: string;
+    type?: string;
+  }[];
 }
 
 export const explainers: Explainer[] = [
@@ -39,6 +45,11 @@ export const explainers: Explainer[] = [
     context: 'Schrödinger\'s thought experiment was first proposed in 1935 as a critique of the Copenhagen interpretation of quantum mechanics. It was designed to highlight the absurdity of applying quantum rules to everyday objects — yet decades later, experiments have confirmed superposition at increasingly large scales, from molecules to vibrating drumheads.',
     technicalDetail: 'The wave function Ψ encodes all possible measurement outcomes as probability amplitudes. When a measurement is made, the system "collapses" into one eigenstate with probability |⟨ψ|ϕ⟩|². Decoherence timescales for macroscopic objects are on the order of 10⁻³⁹ seconds, making real-world superposition of large objects effectively impossible without extreme isolation.',
     impact: 'Quantum superposition underpins the entire quantum computing revolution. Companies like IBM, Google, and startups such as IonQ are racing to build fault-tolerant quantum computers that could transform drug discovery, cryptography, and materials science within the next decade.',
+    references: [
+      { title: 'Nature: Quantum Supremacy using a Programmable Superconducting Processor', author: 'Arute et al. (2019)', url: 'https://www.nature.com/articles/s41586-019-1666-5', type: 'paper' },
+      { title: 'Quantum Computing since Democritus', author: 'Scott Aaronson', type: 'book' },
+      { title: 'The Quantum World: Quantum Physics for Everyone', author: 'Kenneth W. Ford', type: 'book' }
+    ],
   },
   {
     id: 'crispr-scissors',

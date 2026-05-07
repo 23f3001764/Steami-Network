@@ -20,7 +20,7 @@ export function ArticleMedia({ src, alt, field, className = '' }: ArticleMediaPr
     <div
       className={`rounded-xl overflow-hidden ${className}`}
       style={{
-        background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(5,14,32,0.88)',
+        background: isLight ? '#FFFFFF' : '#050E20',
         border: isLight
           ? '1px solid rgba(147,197,253,0.35)'
           : '1px solid rgba(99,179,237,0.14)',

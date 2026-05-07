@@ -128,7 +128,7 @@ export default function ResearchPage() {
       )}
       {loadingResearch && (
         <div className="py-20 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-          Loading backend research news...
+          Loading backend research Article...
         </div>
       )}
 

@@ -153,6 +153,66 @@ export const api = {
     test: (to_email: string, subject?: string) => apiRequest("/api/newsletter/test", { method: "POST", body: { to_email, subject } }),
     aiSubscribe: (body: { email: string; name?: string; source?: string; metadata?: Record<string, unknown> }) =>
       apiRequest("/api/newsletter/ai-subscribe", { method: "POST", body }),
+
+    /** MOD/ADMIN — load saved draft */
+    getDraft: () =>
+      apiRequest<{ draft: Record<string, any> | null }>("/api/newsletter/draft"),
+
+    /** MOD/ADMIN — save / overwrite the draft */
+    saveDraft: (draft: Record<string, any>) =>
+      apiRequest<{ saved: boolean; doc_id: string }>("/api/newsletter/draft/save", { method: "POST", body: draft }),
+
+    /**
+     * MOD/ADMIN — original simple chart generation (backwards compat).
+     * Prefer generateCoverStoryChart for new usage.
+     */
+    generateChart: (body: { article_id: string; title: string; summary?: string; domain?: string }) =>
+      apiRequest<{ chart_image_url: string; explanation: string; article_id: string }>(
+        "/api/newsletter/draft/chart", { method: "POST", body }
+      ),
+
+    /**
+     * MOD/ADMIN — AI cover story via ollama_agent.generate_cover_story().
+     * Returns headline, standfirst, body_paragraphs, pull_quote, key_stats,
+     * chart_data, chart_subject, closing_line, reading_time_min, domain, formatted_summary.
+     */
+    generateCoverStory: (body: {
+      article_id: string; title: string; content?: string; summary?: string;
+      domain?: string; article_url?: string; fetched_at?: string; matched_domains?: string[];
+    }) =>
+      apiRequest<{
+        article_id: string; headline: string; standfirst: string;
+        body_paragraphs: string[]; pull_quote: string;
+        key_stats: Array<{ label: string; value: string; context: string }>;
+        chart_data: Record<string, any>; chart_subject: string;
+        closing_line: string; reading_time_min: number;
+        domain: string; formatted_summary: string;
+      }>("/api/newsletter/draft/cover-story", { method: "POST", body }),
+
+    /**
+     * MOD/ADMIN — AI chart via ollama_agent.generate_newsletter_chart().
+     * Returns chart_image_url, explanation, chart_type, success, error.
+     */
+    generateCoverStoryChart: (body: {
+      article_id: string; title: string; content?: string; summary?: string;
+      domain?: string; article_url?: string; fetched_at?: string; matched_domains?: string[];
+    }) =>
+      apiRequest<{
+        article_id: string; chart_image_url: string; explanation: string;
+        chart_type: string; success: boolean; error: string;
+      }>("/api/newsletter/draft/cover-story-chart", { method: "POST", body }),
+
+    /** MOD/ADMIN — render draft to HTML for iframe preview (no email sent) */
+    previewDraft: (draft: Record<string, any>) =>
+      apiRequest<{ html: string; subject: string; articles_included: number }>(
+        "/api/newsletter/preview-draft", { method: "POST", body: draft }
+      ),
+
+    /** ADMIN only — send the drafted newsletter to all subscribers */
+    sendCustom: (draft: Record<string, any>) =>
+      apiRequest<{ sent: number; failed: number; total_subscribers: number; log_id: string }>(
+        "/api/newsletter/send-custom", { method: "POST", body: draft }
+      ),
   },
 
   public: {
@@ -205,6 +265,10 @@ export const api = {
     explainer: (id: string) => apiRequest(`/api/explainers/${encodeURIComponent(id)}`),
     createExplainer: (body: Record<string, unknown>) => apiRequest("/api/explainers", { method: "POST", body }),
     createExplainerWithImage: (body: Record<string, string>, file: File) => {
+      // body keys: id, title, subtitle, field, badgeColor, readTime, author,
+      //            context, technicalDetail, impact,
+      //            content (JSON string array), keyInsights (JSON string array),
+      //            references (JSON string array of {title,url?,author?,type?} objects)
       const formData = new FormData();
       Object.entries(body).forEach(([key, value]) => formData.append(key, value));
       formData.append("image", file);

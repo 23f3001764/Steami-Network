@@ -4,12 +4,14 @@ import { ApiStatePanel, ObjectList } from '@/components/ApiStatePanel';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { ShieldCheck } from 'lucide-react';
+import { NewsletterTab } from '@/components/NewsletterTab';
 
 // ─── Empty form state shapes ────────────────────────────────────────────────────
 
 const emptyExplainer = {
   id: '', title: '', subtitle: '', field: '', badgeColor: '', readTime: '',
   author: '', content: '', keyInsights: '', context: '', technicalDetail: '', impact: '',
+  references: '',  // JSON lines: one object per line — { title, url, author, type }
 };
 
 const emptyResearch = {
@@ -28,6 +30,16 @@ const emptyBlog = {
 
 const lines = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean);
 const csv   = (s: string) => s.split(',').map((l) => l.trim()).filter(Boolean);
+
+/**
+ * Parse the references textarea value.
+ * Each non-empty line must be valid JSON: {"title":"...","url":"...","author":"...","type":"..."}
+ * Lines that fail JSON.parse are treated as plain-text titles: { title: line }.
+ */
+const parseReferences = (s: string): Array<{ title: string; url?: string; author?: string; type?: string }> =>
+  s.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    try { return JSON.parse(l); } catch { return { title: l }; }
+  });
 
 // ─── Reusable field components ─────────────────────────────────────────────────
 
@@ -80,7 +92,7 @@ export default function ModerationPage() {
   const user = useAuthStore((s) => s.user);
   const canModerate = user?.role === 'admin' || user?.role === 'mod';
 
-  const [tab, setTab] = useState<'explainer' | 'research' | 'blog' | 'feed'>('explainer');
+  const [tab, setTab] = useState<'explainer' | 'research' | 'blog' | 'newsletter'>('explainer');
 
   const [explainerForm, setExplainerForm] = useState(emptyExplainer);
   const [researchForm,  setResearchForm]  = useState(emptyResearch);
@@ -112,8 +124,7 @@ export default function ModerationPage() {
       const data =
         tab === 'explainer' ? await api.content.cmsExplainers()
         : tab === 'research' ? await api.content.cmsResearch()
-        : tab === 'blog'     ? await api.content.cmsBlog()
-        :                      await api.feed.items();
+        :                      await api.content.cmsBlog();
       setItems(Array.isArray(data) ? data : data?.items ?? data?.articles ?? data?.explainers ?? data?.posts ?? []);
     } catch (err: any) {
       setError(err.message || 'Unable to load items');
@@ -147,6 +158,7 @@ export default function ModerationPage() {
             context:         explainerForm.context         || undefined,
             technicalDetail: explainerForm.technicalDetail || undefined,
             impact:          explainerForm.impact          || undefined,
+            references:      parseReferences(explainerForm.references),
           });
           if (imageFile) await api.content.uploadExplainerImage(editingId, imageFile);
         } else {
@@ -166,6 +178,7 @@ export default function ModerationPage() {
               impact:          explainerForm.impact,
               content:         JSON.stringify(lines(explainerForm.content)),
               keyInsights:     JSON.stringify(lines(explainerForm.keyInsights)),
+              references:      JSON.stringify(parseReferences(explainerForm.references)),
             },
             imageFile,
           );
@@ -284,6 +297,9 @@ export default function ModerationPage() {
         context:         full.context         ?? '',
         technicalDetail: full.technicalDetail ?? '',
         impact:          full.impact          ?? '',
+        references:      Array.isArray(full.references)
+          ? full.references.map((r: any) => JSON.stringify(r)).join('\n')
+          : '',
       });
     } else if (tab === 'research') {
       setResearchForm({
@@ -331,7 +347,6 @@ export default function ModerationPage() {
     if (tab === 'explainer') await api.content.deleteExplainer(id);
     if (tab === 'research')  await api.content.deleteResearch(id);
     if (tab === 'blog')      await api.content.deleteBlogPost(id);
-    if (tab === 'feed')      await api.feed.delete(id);
     setStatus('Deleted.'); loadItems();
   };
 
@@ -364,21 +379,27 @@ export default function ModerationPage() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-2 mb-6">
-        {(['explainer', 'research', 'blog', 'feed'] as const).map((t) => (
+        {(['explainer', 'research', 'blog', 'newsletter'] as const).map((t) => (
           <button
             key={t}
             onClick={() => { setTab(t); resetAll(); setStatus(''); setError(''); }}
             className={`steami-btn text-[11px] ${tab === t ? 'steami-btn-gold' : ''}`}
           >
-            {t}
+            {t === 'newsletter' ? '📰 Newsletter' : t}
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
+        {tab === 'newsletter' ? (
+          <div className="lg:col-span-2">
+            <NewsletterTab />
+          </div>
+        ) : (
+          <>
         {/* ── CREATE / EDIT FORM ────────────────────────────────────────────── */}
-        {tab !== 'feed' && (
+        {tab !== 'newsletter' && (
           <section className="glass-card p-5">
             <h2 className="steami-section-label mb-4">{editingId ? `Update ${tab}` : `Create ${tab}`}</h2>
             <form onSubmit={submit} className="space-y-3">
@@ -398,6 +419,13 @@ export default function ModerationPage() {
                   <TextArea label="Context & Background" value={explainerForm.context} onChange={ef('context')} rows={3} />
                   <TextArea label="Technical Detail" value={explainerForm.technicalDetail} onChange={ef('technicalDetail')} rows={3} />
                   <TextArea label="Impact & Implications" value={explainerForm.impact} onChange={ef('impact')} rows={3} />
+                  <TextArea
+                    label="References / Credentials"
+                    value={explainerForm.references}
+                    onChange={ef('references')}
+                    rows={4}
+                    hint='One reference per line as JSON: {"title":"Paper Title","url":"https://...","author":"Author Name","type":"paper"} — or just a plain title string.'
+                  />
                 </>
               )}
 
@@ -493,7 +521,7 @@ export default function ModerationPage() {
 
         {/* ── ITEM LIST ─────────────────────────────────────────────────────── */}
         <ApiStatePanel
-          title={tab === 'feed' ? 'Feed Items' : `Backend ${tab}s`}
+          title={`Backend ${tab}s`}
           error={error}
           onRefresh={loadItems}
         >
@@ -507,16 +535,11 @@ export default function ModerationPage() {
                       {item.description ?? item.subtitle ?? item.abstract ?? item.content ?? ''}
                     </p>
                   </div>
-                  {tab !== 'feed' && (
+                  {tab !== 'newsletter' && (
                     <button className="steami-btn text-[11px]" onClick={() => editItem(item)}>Edit</button>
                   )}
-                  {tab !== 'feed' && (
+                  {tab !== 'newsletter' && (
                     <button className="steami-btn text-[11px]" onClick={() => deleteItem(item)}>Delete</button>
-                  )}
-                  {tab === 'feed' && (
-                    <button className="steami-btn text-[11px]" onClick={() => api.feed.insight(item.id).then(loadItems)}>
-                      Insight
-                    </button>
                   )}
                 </div>
               </div>
@@ -524,6 +547,8 @@ export default function ModerationPage() {
             {items.length === 0 && <ObjectList items={[]} />}
           </div>
         </ApiStatePanel>
+          </>
+        )}
 
       </div>
     </SteamiLayout>

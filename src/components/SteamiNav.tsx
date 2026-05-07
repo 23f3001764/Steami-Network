@@ -1,12 +1,29 @@
+/**
+ * SteamiNav.tsx  (merged)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Full nav JSX from SteamiNav_old.tsx + newsletter additions from SteamiNav.tsx:
+ *   1. Imports useNewsletterPopup + NewsletterModal
+ *   2. Subscribe button in mobile drawer wired to open the modal
+ *   3. Subscribe link in desktop nav (next to notification bell)
+ *   4. NewsletterModal rendered at the bottom of the JSX tree
+ *   5. All original logic is unchanged
+ */
+
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSteamiStore } from '@/stores/steami-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Sun, Moon, LogIn, LogOut, ChevronDown, User, Bell, BookOpen, FlaskConical, Newspaper, X, ChevronRight } from 'lucide-react';
-import { AuthModal } from '@/components/AuthModal';
+import {
+  Sun, Moon, LogIn, LogOut, ChevronDown, User,
+  Bell, BookOpen, FlaskConical, Newspaper, X, ChevronRight,
+  Mail,  // NEWSLETTER
+} from 'lucide-react';
+import { AuthModal }       from '@/components/AuthModal';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { NewsletterModal } from '@/components/NewsletterModal';        // NEWSLETTER
+import { useNewsletterPopup } from '@/hooks/use-newsletter-popup';     // NEWSLETTER
 import { api } from '@/lib/api';
 import { formatShortUserName, getInitials } from '@/lib/user-display';
 
@@ -51,16 +68,29 @@ function formatRelative(iso: string): string {
 // ── Main nav component ────────────────────────────────────────────────────────
 
 export function SteamiNav() {
-  const location = useLocation();
-  const diaryCount = useSteamiStore((s) => s.diary.length);
+  const location    = useLocation();
+  const diaryCount  = useSteamiStore((s) => s.diary.length);
   const { theme, toggleTheme } = useThemeStore();
   const { user, isAuthenticated, logout } = useAuthStore();
-  const [menuOpen, setMenuOpen]       = useState(false);
-  const [authOpen, setAuthOpen]       = useState(false);
-  const [onboardOpen, setOnboardOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [avatarUrl, setAvatarUrl]     = useState<string | null>(null);
+  const [menuOpen,      setMenuOpen]      = useState(false);
+  const [authOpen,      setAuthOpen]      = useState(false);
+  const [onboardOpen,   setOnboardOpen]   = useState(false);
+  const [userMenuOpen,  setUserMenuOpen]  = useState(false);
+  const [avatarUrl,     setAvatarUrl]     = useState<string | null>(null);
   const isLight = theme === 'light';
+
+  // NEWSLETTER ── manual open flag + deep-link detection
+  const [nlOpen, setNlOpen] = useState(false);
+  const [nlMode, setNlMode] = useState<'subscribe' | 'unsubscribe'>('subscribe');
+  const nlPopup             = useNewsletterPopup();
+
+  // When deep-link is detected, open the modal in the correct mode
+  useEffect(() => {
+    if (nlPopup.mode) {
+      setNlMode(nlPopup.mode);
+      setNlOpen(true);
+    }
+  }, [nlPopup.mode]);
 
   // ── Notification state ──────────────────────────────────────────────────────
   const [notifItems,   setNotifItems]   = useState<NotificationItem[]>([]);
@@ -72,9 +102,9 @@ export function SteamiNav() {
 
   // ── Nav links ───────────────────────────────────────────────────────────────
   const navLinks = [
-    { path: '/', label: 'EXPLAINERS' },
-    { path: '/blog', label: 'BLOG' },
-    { path: '/research', label: 'RESEARCH' },
+    { path: '/',            label: 'EXPLAINERS' },
+    { path: '/blog',        label: 'BLOG' },
+    { path: '/research',    label: 'RESEARCH' },
     { path: '/simulations', label: 'SIMULATIONS' },
     ...(isAuthenticated ? [{ path: '/dashboard', label: 'DASHBOARD' }] : []),
     ...(user?.role === 'mod' || user?.role === 'admin' ? [{ path: '/moderation', label: 'MOD' }] : []),
@@ -84,7 +114,11 @@ export function SteamiNav() {
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
-  useEffect(() => { closeMenu(); setUserMenuOpen(false); setNotifOpen(false); }, [location.pathname, closeMenu]);
+  useEffect(() => {
+    closeMenu();
+    setUserMenuOpen(false);
+    setNotifOpen(false);
+  }, [location.pathname, closeMenu]);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
@@ -104,7 +138,6 @@ export function SteamiNav() {
     api.profile.me()
       .then((data: any) => {
         const u = data?.user ?? data;
-        // Prefer custom avatar_url; fall back to Google profile picture for OAuth users
         setAvatarUrl(u?.avatar_url ?? u?.google_picture ?? null);
       })
       .catch(() => setAvatarUrl(null));
@@ -177,6 +210,19 @@ export function SteamiNav() {
     }
   };
 
+  // NEWSLETTER handlers ────────────────────────────────────────────────────────
+  const openSubscribeModal = () => {
+    setNlMode('subscribe');
+    setNlOpen(true);
+    closeMenu();
+  };
+
+  const closeNlModal = () => {
+    setNlOpen(false);
+    nlPopup.dismiss();
+  };
+
+  // ── Shared styles ───────────────────────────────────────────────────────────
   const btnStyle = {
     border: `1px solid ${isLight ? 'rgba(147,197,253,0.4)' : 'rgba(99,179,237,0.18)'}`,
     background: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(10,25,55,0.4)',
@@ -198,6 +244,7 @@ export function SteamiNav() {
 
   return (
     <>
+      {/* ── Desktop nav bar ── */}
       <motion.nav
         initial={{ y: -48, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -210,6 +257,7 @@ export function SteamiNav() {
           boxShadow: isLight ? '0 1px 24px rgba(147, 197, 253, 0.15)' : '0 1px 32px rgba(0,0,0,0.4)',
         }}
       >
+        {/* Logo */}
         <Link to="/" className="font-mono text-[18px] sm:text-[20px] font-bold tracking-wider group shrink-0">
           <motion.span
             className="text-steami-gold inline-block drop-shadow-sm group-hover:drop-shadow-[0_0_8px_rgba(232,184,75,0.4)] transition-all duration-200"
@@ -253,7 +301,16 @@ export function SteamiNav() {
 
         <div className="ml-auto flex items-center gap-4">
 
-          {/* ── Notification Bell ───────────────────────────────────────── */}
+          {/* NEWSLETTER ── Desktop Subscribe button */}
+          <button
+            onClick={openSubscribeModal}
+            title="Subscribe to newsletter"
+            className="hidden md:flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-steami-cyan transition-colors"
+          >
+            <Mail className="w-3.5 h-3.5" /> Subscribe
+          </button>
+
+          {/* ── Notification Bell ─────────────────────────────────────────── */}
           <div className="relative hidden md:block" ref={notifPanelRef}>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -749,19 +806,17 @@ export function SteamiNav() {
                   {isLight ? 'DARK MODE' : 'LIGHT MODE'}
                 </button>
 
+                {/* NEWSLETTER ── Mobile Subscribe button (was hidden/aria-hidden in old file) */}
                 <button
-                  aria-hidden="true"
-                  className={`hidden w-full font-mono text-[11px] tracking-wider uppercase px-4 py-3 rounded-lg transition-all ${
-                    false ? 'text-steami-gold' : 'text-muted-foreground'
-                  }`}
+                  onClick={openSubscribeModal}
+                  className="w-full font-mono text-[11px] tracking-wider uppercase px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2"
                   style={{
-                    border: `1px solid ${false ? 'rgba(232, 184, 75, 0.35)' : isLight ? 'rgba(147, 197, 253, 0.4)' : 'rgba(99, 179, 237, 0.18)'}`,
-                    background: false
-                      ? (isLight ? 'rgba(163, 133, 36, 0.08)' : 'rgba(232, 184, 75, 0.1)')
-                      : (isLight ? 'rgba(255, 255, 255, 0.6)' : 'rgba(10, 25, 55, 0.4)'),
+                    border: isLight ? '1px solid rgba(0,217,255,0.4)' : '1px solid rgba(0,217,255,0.2)',
+                    background: isLight ? 'rgba(0,217,255,0.06)' : 'rgba(0,217,255,0.08)',
+                    color: 'hsl(var(--steami-cyan))',
                   }}
                 >
-                  Subscribe
+                  <Mail className="w-3.5 h-3.5" /> SUBSCRIBE
                 </button>
               </motion.div>
             </motion.div>
@@ -769,9 +824,16 @@ export function SteamiNav() {
         )}
       </AnimatePresence>
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={handleAuthSuccess} />
       <OnboardingModal open={onboardOpen} onClose={() => setOnboardOpen(false)} />
+
+      {/* NEWSLETTER modal */}
+      <NewsletterModal
+        mode={nlOpen ? nlMode : null}
+        initialEmail={nlPopup.email}
+        onClose={closeNlModal}
+      />
     </>
   );
 }
