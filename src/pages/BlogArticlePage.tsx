@@ -302,7 +302,9 @@ export default function BlogArticlePage() {
 
           {/* Sidebar */}
           <div className="w-full lg:w-[320px] shrink-0 mt-8 lg:mt-0">
-            <BlogSidebar post={post} />
+            <div className="lg:sticky lg:top-4 lg:self-start">
+              <BlogSidebar post={post} />
+            </div>
           </div>
         </div>
       </motion.div>

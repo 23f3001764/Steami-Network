@@ -32,9 +32,9 @@ export default function BlogListingPage() {
   return (
     <SteamiLayout>
       <motion.div className="mb-10" variants={fadeInUp} initial="hidden" animate="visible">
-        <h1 className="steami-heading text-3xl md:text-4xl mb-4">Blog</h1>
+        <h1 className="steami-heading text-3xl md:text-4xl mb-4">Intelligence</h1>
         <p className="text-[15px] font-medium text-muted-foreground max-w-2xl leading-relaxed">
-          The latest insights, discoveries, and thought pieces from the community.
+          The latest insights, discoveries, and thought pieces from across science, technology, and beyond.
         </p>
       </motion.div>
 
@@ -45,7 +45,7 @@ export default function BlogListingPage() {
       )}
 
       {loading ? (
-        <div className="py-20 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Loading backend blog posts...</div>
+        <div className="py-20 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Loading intelligence posts...</div>
       ) : (
       <AnimatedSection className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {posts.map((post, idx) => (
@@ -95,7 +95,7 @@ export default function BlogListingPage() {
 
       {posts.length === 0 && (
         <div className="text-center py-20">
-          <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">No posts found</p>
+          <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">No intelligence posts found</p>
         </div>
       )}
     </SteamiLayout>

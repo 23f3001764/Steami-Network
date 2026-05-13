@@ -548,7 +548,7 @@ function ArticleModal({
 
         {/* ── RIGHT PANEL: Sticky Media + Sidebar (desktop only) ── */}
         <motion.div
-          className="w-80 hidden lg:flex flex-col gap-3 overflow-y-auto"
+          className="w-80 hidden lg:flex flex-col gap-3 overflow-y-auto max-h-[94svh]"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
@@ -607,20 +607,7 @@ function ArticleModal({
               field={article.field}
               compact
             />
-            <div className="mt-3 pt-3 border-t border-steami-cyan/10">
-              <div className="font-mono text-[11px] text-muted-foreground mb-2">RELATED NEWS</div>
-              {relatedPool.filter(a => a.id !== article.id && a.field === article.field).slice(0, 2).map(a => (
-                <motion.button
-                  key={a.id}
-                  whileHover={{ x: 3, backgroundColor: 'rgba(99, 179, 237, 0.08)' }}
-                  onClick={() => onSelectArticle(a)}
-                  className="block w-full text-left p-2 rounded-md mb-1 transition-colors"
-                >
-                  <div className="font-serif text-[17px] font-extrabold text-foreground leading-tight">{a.title}</div>
-                  <div className="font-mono text-[11px] text-muted-foreground mt-1">{a.author}</div>
-                </motion.button>
-              ))}
-            </div>
+  
           </div>
 
           {/* Research Diary */}

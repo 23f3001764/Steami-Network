@@ -44,7 +44,7 @@ interface NotificationItem {
 const TYPE_META: Record<ContentType, { label: string; Icon: React.ElementType; color: string }> = {
   explainer: { label: 'Explainer',        Icon: BookOpen,     color: '#00d9ff' },
   research:  { label: 'Research Article', Icon: FlaskConical, color: '#ff4ef0' },
-  blog:      { label: 'Blog Post',        Icon: Newspaper,    color: '#e8b84b' },
+  blog:      { label: 'Intelligence',        Icon: Newspaper,    color: '#e8b84b' },
 };
 
 const NOTIF_STORAGE_KEY   = 'steami_notif_since';
@@ -103,7 +103,7 @@ export function SteamiNav() {
   // ── Nav links ───────────────────────────────────────────────────────────────
   const navLinks = [
     { path: '/',            label: 'EXPLAINERS' },
-    { path: '/blog',        label: 'BLOG' },
+    { path: '/blog',        label: 'INTELLIGENCE' },
     { path: '/research',    label: 'RESEARCH' },
     { path: '/simulations', label: 'SIMULATIONS' },
     ...(isAuthenticated ? [{ path: '/dashboard', label: 'DASHBOARD' }] : []),

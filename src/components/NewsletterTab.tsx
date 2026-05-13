@@ -656,11 +656,14 @@ export function NewsletterTab() {
   const [genChartLoading, setGenChartLoading] = useState(false);
   const [saveLoading,     setSaveLoading]     = useState(false);
   const [sendLoading,     setSendLoading]     = useState(false);
+  const [testEmail,       setTestEmail]       = useState('');
+  const [testSendLoading, setTestSendLoading] = useState(false);
 
   const [coverStatus, setCoverStatus] = useState({ ok: true, msg: '' });
   const [chartStatus, setChartStatus] = useState({ ok: true, msg: '' });
   const [saveStatus,  setSaveStatus]  = useState({ ok: true, msg: '' });
   const [sendStatus,  setSendStatus]  = useState({ ok: true, msg: '' });
+  const [testStatus,  setTestStatus]  = useState({ ok: true, msg: '' });
   const [prevStatus,  setPrevStatus]  = useState({ ok: true, msg: '' });
 
   const [previewHtml, setPreviewHtml] = useState('');
@@ -873,6 +876,23 @@ export function NewsletterTab() {
       setSendStatus({ ok: false, msg: e.message || 'Send failed.' });
     } finally {
       setSendLoading(false);
+    }
+  };
+
+  // ── Send test email ───────────────────────────────────────────────────────
+  // POST /api/newsletter/test  body: { to_email, draft? }
+  // Mirrors AdminPage's "Send test" — sends the current draft to a single address.
+  const sendTestEmail = async () => {
+    if (!testEmail.trim()) { setTestStatus({ ok: false, msg: 'Enter a test email address.' }); return; }
+    setTestSendLoading(true); setTestStatus({ ok: true, msg: '' });
+    try {
+      const payload = { ...draft, on_the_radar: radarEventsToText(draft.radar_events) };
+      await api.newsletter.test(testEmail.trim(), payload);
+      setTestStatus({ ok: true, msg: `Test email sent to ${testEmail}.` });
+    } catch (e: any) {
+      setTestStatus({ ok: false, msg: e.message || 'Test send failed.' });
+    } finally {
+      setTestSendLoading(false);
     }
   };
 
@@ -1144,12 +1164,38 @@ export function NewsletterTab() {
               setDraft(emptyDraft);
               setCoverStatus({ ok: true, msg: '' }); setChartStatus({ ok: true, msg: '' });
               setSaveStatus({ ok: true, msg: '' }); setSendStatus({ ok: true, msg: '' });
+              setTestStatus({ ok: true, msg: '' });
               setPrevStatus({ ok: true, msg: '' });
             }}
             className="steami-btn text-[11px] flex items-center gap-1.5 ml-auto">
             <Trash2 className="w-3 h-3" /> Clear
           </button>
         </div>
+
+        {/* ── Test send — POST /api/newsletter/test (mirrors AdminPage) ────── */}
+        {canSend && (
+          <div className="pt-2 border-t border-white/8 space-y-2">
+            <p className="text-[11px] text-muted-foreground/50 font-mono uppercase tracking-widest">Send test</p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={testEmail}
+                onChange={(e) => { setTestEmail(e.target.value); setTestStatus({ ok: true, msg: '' }); }}
+                placeholder="test@example.com"
+                className="min-w-0 flex-1 rounded-md border border-white/10 bg-transparent px-3 py-2 text-[13px] focus:outline-none focus:border-steami-cyan/40"
+              />
+              <button type="button" onClick={sendTestEmail} disabled={testSendLoading || !testEmail.trim()}
+                className="steami-btn text-[11px] flex items-center gap-1.5 disabled:opacity-40">
+                {testSendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                {testSendLoading ? 'Sending…' : 'Send test'}
+              </button>
+            </div>
+            <StatusLine {...testStatus} />
+            <p className="text-[10px] text-muted-foreground/30">
+              Sends the current draft to a single address — does not affect subscribers.
+            </p>
+          </div>
+        )}
+
         <StatusLine {...saveStatus} />
         <StatusLine {...sendStatus} />
         <StatusLine {...prevStatus} />

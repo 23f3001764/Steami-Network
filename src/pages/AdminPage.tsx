@@ -168,6 +168,7 @@ export default function AdminPage() {
   // Newsletter send-custom
   const [sendCustomStatus, setSendCustomStatus] = useState<{ msg: string; ok: boolean } | null>(null);
   const [sendCustomLoading, setSendCustomLoading] = useState(false);
+  const [sendCustomDraftLoading, setSendCustomDraftLoading] = useState(false);
   // Event log filters (supported by GET /api/dashboard/admin/events)
   const [eventTypeFilter, setEventTypeFilter] = useState('');
   const [eventUidFilter, setEventUidFilter] = useState('');
@@ -515,26 +516,33 @@ export default function AdminPage() {
             >
               <Send className="w-3 h-3" /> Send test
             </button>
-            {/* POST /api/newsletter/send-custom — loads saved draft from MongoDB and sends to all subscribers */}
+            {/* POST /api/newsletter/send-custom — fetches saved draft from MongoDB then sends to all subscribers */}
             <button
               className="steami-btn text-[11px] flex items-center gap-1.5"
-              disabled={sendCustomLoading}
+              disabled={sendCustomLoading || sendCustomDraftLoading}
               onClick={async () => {
                 if (!window.confirm('Send the saved newsletter draft to ALL subscribers?')) return;
                 setSendCustomStatus(null);
                 setSendCustomLoading(true);
                 try {
-                  const res = await api.newsletter.sendCustom();
-                  setSendCustomStatus({ ok: true, msg: `Sent to ${res?.sent ?? '?'} subscribers` });
+                  // Load the saved draft from MongoDB first, then pass it as payload
+                  // (mirrors the same pattern used in NewsletterTab.sendNewsletter)
+                  setSendCustomDraftLoading(true);
+                  const saved = await api.newsletter.getDraft().catch(() => null);
+                  setSendCustomDraftLoading(false);
+                  const payload = saved?.draft ?? {};
+                  const res = await api.newsletter.sendCustom(payload);
+                  setSendCustomStatus({ ok: true, msg: `Sent to ${res?.sent ?? '?'} subscriber(s). Failed: ${res?.failed ?? 0}.` });
                 } catch (e: any) {
                   setSendCustomStatus({ ok: false, msg: e.message || 'Send failed' });
                 } finally {
                   setSendCustomLoading(false);
+                  setSendCustomDraftLoading(false);
                 }
               }}
             >
               <Send className={`w-3 h-3 ${sendCustomLoading ? 'animate-pulse' : ''}`} />
-              {sendCustomLoading ? 'Sending…' : 'Send custom newsletter'}
+              {sendCustomDraftLoading ? 'Loading draft…' : sendCustomLoading ? 'Sending…' : 'Send custom newsletter'}
             </button>
           </div>
           {testSendStatus && (

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -20,6 +20,7 @@ import InterestsPage from "./pages/InterestsPage";
 import ProfilePage from "./pages/ProfilePage";
 import InsightsPage from "./pages/InsightsPage";
 import { CursorEffect } from "@/components/CursorEffect";
+import { RelatedContentFloatingPanel } from "@/components/RelatedContentFloatingPanel";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,29 @@ function AnimatedRoutes() {
   );
 }
 
+/**
+ * GlobalOverlays — mounted inside BrowserRouter so it can read the URL.
+ * Shows RelatedContentFloatingPanel when a content URL param is active,
+ * which automatically suppresses the news popup on those routes.
+ */
+function GlobalOverlays() {
+  const location     = useLocation();
+  const [params]     = useSearchParams();
+
+  const hasExplainer = !!params.get('explainer');
+  const hasResearch  = !!params.get('research');
+  const hasBlog      = /^\/blog\/.+/.test(location.pathname);
+
+  const isContentRoute = hasExplainer || hasResearch || hasBlog;
+
+  return (
+    <>
+      {/* Related Content floating panel — shown on content routes */}
+      {isContentRoute && <RelatedContentFloatingPanel />}
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -65,6 +89,7 @@ const App = () => (
       <CursorEffect />
       <BrowserRouter>
         <AnimatedRoutes />
+        <GlobalOverlays />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

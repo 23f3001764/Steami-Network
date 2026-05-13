@@ -648,7 +648,7 @@ export default function ExplainerPage() {
 
               {/* ── RIGHT PANEL: Sticky Media + Sidebar (desktop only) ── */}
               <motion.div
-                className="w-80 hidden lg:flex flex-col gap-3 overflow-y-auto"
+                className="w-80 hidden lg:flex flex-col gap-3 overflow-y-auto max-h-[94svh]"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2, duration: 0.4 }}
@@ -712,54 +712,6 @@ export default function ExplainerPage() {
                     field={selected.field}
                     compact
                   />
-                </div>
-
-                {/* Related Explainers */}
-                <div
-                  className="rounded-xl p-4"
-                  style={{
-                    background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(5,14,32,0.88)',
-                    border: isLight ? '1px solid rgba(163,133,36,0.2)' : '1px solid rgba(232,184,75,0.14)',
-                  }}
-                >
-                  <div className="font-mono text-[11px] tracking-wider uppercase text-steami-gold mb-3 flex items-center gap-2">
-                    <BookOpen className="w-3 h-3" /> RELATED EXPLAINERS
-                  </div>
-                  {pageExplainers
-                    .filter((e) => e.id !== selected.id && e.field === selected.field)
-                    .slice(0, 3)
-                    .map((e) => {
-                      const relIdx = pageExplainers.findIndex((x) => x.id === e.id);
-                      return (
-                        <motion.button
-                          key={e.id}
-                          whileHover={{ x: 3, backgroundColor: 'rgba(99,179,237,0.08)' }}
-                          onClick={() => openModal(relIdx)}
-                          className="block w-full text-left p-2 rounded-md mb-1 transition-colors"
-                        >
-                          <div className="font-serif text-[17px] font-extrabold text-foreground leading-tight">{e.title}</div>
-                          <div className="font-mono text-[11px] text-muted-foreground mt-1">{e.readTime}</div>
-                        </motion.button>
-                      );
-                    })}
-                  {pageExplainers.filter((e) => e.id !== selected.id && e.field === selected.field).length === 0 &&
-                    pageExplainers
-                      .filter((e) => e.id !== selected.id)
-                      .slice(0, 2)
-                      .map((e) => {
-                        const relIdx = pageExplainers.findIndex((x) => x.id === e.id);
-                        return (
-                          <motion.button
-                            key={e.id}
-                            whileHover={{ x: 3, backgroundColor: 'rgba(99,179,237,0.08)' }}
-                            onClick={() => openModal(relIdx)}
-                            className="block w-full text-left p-2 rounded-md mb-1 transition-colors"
-                          >
-                            <div className="font-serif text-[17px] font-extrabold text-foreground leading-tight">{e.title}</div>
-                            <div className="font-mono text-[11px] text-muted-foreground mt-1">{e.field} · {e.readTime}</div>
-                          </motion.button>
-                        );
-                      })}
                 </div>
 
                 {/* References / Credentials Section */}

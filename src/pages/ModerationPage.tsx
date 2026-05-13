@@ -223,7 +223,7 @@ export default function ModerationPage() {
         }
       }
 
-      // ── BLOG ───────────────────────────────────────────────────────────────
+      // ── INTELLIGENCE ───────────────────────────────────────────────────────────────
       else if (tab === 'blog') {
         const blogBody = {
           id:           blogForm.id,
@@ -385,7 +385,7 @@ export default function ModerationPage() {
             onClick={() => { setTab(t); resetAll(); setStatus(''); setError(''); }}
             className={`steami-btn text-[11px] ${tab === t ? 'steami-btn-gold' : ''}`}
           >
-            {t === 'newsletter' ? '📰 Newsletter' : t}
+            {t === 'newsletter' ? '📰 Newsletter' : t === 'blog' ? 'Intelligence' : t}
           </button>
         ))}
       </div>
@@ -446,7 +446,7 @@ export default function ModerationPage() {
                 </>
               )}
 
-              {/* ── Blog fields ── */}
+              {/* ── Intelligence fields ── */}
               {tab === 'blog' && (
                 <>
                   <Field label="ID (unique slug)" value={blogForm.id} onChange={bf('id')} required disabled={!!editingId} placeholder="e.g. future-of-quantum" />
