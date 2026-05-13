@@ -150,7 +150,7 @@ export const api = {
     unsubscribe: (email: string) => apiRequest("/api/newsletter/unsubscribe", { method: "POST", body: { email } }),
     preview: (limit = 5) => apiRequest(`/api/newsletter/preview${buildQuery({ limit })}`),
     sendDaily: (limit = 5) => apiRequest(`/api/newsletter/send-daily${buildQuery({ limit })}`, { method: "POST" }),
-    test: (to_email: string, subject?: string) => apiRequest("/api/newsletter/test", { method: "POST", body: { to_email, subject } }),
+    test: (to_email: string, draft?: Record<string, any>, subject?: string) => apiRequest("/api/newsletter/test", { method: "POST", body: { to_email, draft, subject } }),
     aiSubscribe: (body: { email: string; name?: string; source?: string; metadata?: Record<string, unknown> }) =>
       apiRequest("/api/newsletter/ai-subscribe", { method: "POST", body }),
 
