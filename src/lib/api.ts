@@ -146,8 +146,8 @@ export const api = {
 
   newsletter: {
     recipients: () => apiRequest("/api/newsletter/recipients"),
-    subscribe: (email: string, name = "") => apiRequest("/api/newsletter/subscribe", { method: "POST", body: { email, name } }),
-    unsubscribe: (email: string) => apiRequest("/api/newsletter/unsubscribe", { method: "POST", body: { email } }),
+    subscribe: (body: { email: string; name?: string }) => apiRequest("/api/newsletter/subscribe", { method: "POST", body }),
+    unsubscribe: (body: { email: string }) => apiRequest("/api/newsletter/unsubscribe", { method: "POST", body }),
     preview: (limit = 5) => apiRequest(`/api/newsletter/preview${buildQuery({ limit })}`),
     sendDaily: (limit = 5) => apiRequest(`/api/newsletter/send-daily${buildQuery({ limit })}`, { method: "POST" }),
     test: (to_email: string, draft?: Record<string, any>, subject?: string) => apiRequest("/api/newsletter/test", { method: "POST", body: { to_email, draft, subject } }),

@@ -239,7 +239,7 @@ export default function DashboardPage() {
       .recipients()
       .then((data: any) => {
         const recipients: any[] = Array.isArray(data) ? data : data?.recipients ?? data?.subscribers ?? [];
-        // A user is truly subscribed only if subscribed===true AND is_active is not explicitly false
+        // Truly subscribed = record found + subscribed===true + is_active not explicitly false
         const match = recipients.find(
           (entry) => String(entry.email ?? entry).toLowerCase() === emailToCheck.toLowerCase(),
         );
@@ -274,7 +274,7 @@ export default function DashboardPage() {
       setProfile((prev) => prev ? { ...prev, subscribed_newsletter: nextSubscribed } : prev);
       setNewsletterMessage(nextSubscribed ? 'Subscribed to newsletter!' : 'Unsubscribed from newsletter.');
     } catch (err: any) {
-      // Surface FastAPI 422 detail[] messages
+      // Surface FastAPI 422 detail[] into a readable string
       const detail = err?.detail ?? err?.response?.data?.detail;
       const humanMsg = Array.isArray(detail)
         ? detail.map((d: any) => d.msg ?? String(d)).join(', ')

@@ -23,18 +23,18 @@ interface Props {
 }
 
 export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
-  const [email,        setEmail]        = useState(initialEmail);
-  const [name,         setName]         = useState('');
-  const [status,       setStatus]       = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [message,      setMessage]      = useState('');
-  /** null = not yet checked, true = actively subscribed, false = not subscribed / inactive */
-  const [isSubscribed,   setIsSubscribed]   = useState<boolean | null>(null);
-  const [checkingEmail,  setCheckingEmail]  = useState(false);
+  const [email,       setEmail]       = useState(initialEmail);
+  const [name,        setName]        = useState('');
+  const [status,      setStatus]      = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message,     setMessage]     = useState('');
+  /** null = unchecked, true = actively subscribed, false = not subscribed / inactive */
+  const [isSubscribed,  setIsSubscribed]  = useState<boolean | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   /**
-   * GET /api/newsletter/recipients — public, no token required.
-   * Sets isSubscribed based on email match + is_active flag.
+   * GET /api/newsletter/recipients — public, no token needed.
+   * Checks subscribed===true AND is_active!==false (inactive users count as unsubscribed).
    */
   const checkEmailSubscription = async (emailToCheck: string) => {
     if (!emailToCheck.includes('@')) { setIsSubscribed(null); return; }
@@ -47,7 +47,7 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
       const match = recipients.find(
         (entry: any) => String(entry.email ?? entry).toLowerCase() === emailToCheck.toLowerCase(),
       );
-      // Truly subscribed = record exists + subscribed===true + is_active not explicitly false
+      // is_active===false means unsubscribed even if subscribed field says true
       const found = !!match && match.subscribed === true && match.is_active !== false;
       setIsSubscribed(found);
     } catch {
@@ -84,7 +84,7 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
       return;
     }
 
-    // Pre-flight: block conflicting actions based on known subscription state
+    // Pre-flight: block if subscription state conflicts with action
     if (mode === 'subscribe' && isSubscribed === true) {
       setStatus('error');
       setMessage('This email is already subscribed to the newsletter.');
@@ -111,7 +111,7 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
         setMessage("You've been unsubscribed. You won't receive further newsletter emails.");
       }
     } catch (e: any) {
-      // Surface FastAPI 422 detail[] array into a readable string
+      // Surface FastAPI 422 detail[] into a readable string
       const detail = e?.detail ?? e?.response?.data?.detail;
       const humanMsg = Array.isArray(detail)
         ? detail.map((d: any) => d.msg ?? String(d)).join(', ')
@@ -223,24 +223,16 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
                         </p>
                       )}
                       {!checkingEmail && isSubscribed === true && mode === 'subscribe' && (
-                        <p className="mt-1 font-mono text-[10px] text-yellow-400">
-                          ⚠ Already subscribed with this email.
-                        </p>
+                        <p className="mt-1 font-mono text-[10px] text-yellow-400">⚠ Already subscribed with this email.</p>
                       )}
                       {!checkingEmail && isSubscribed === false && mode === 'subscribe' && (
-                        <p className="mt-1 font-mono text-[10px] text-green-400">
-                          ✓ Email is available to subscribe.
-                        </p>
+                        <p className="mt-1 font-mono text-[10px] text-green-400">✓ Email available to subscribe.</p>
                       )}
                       {!checkingEmail && isSubscribed === true && mode === 'unsubscribe' && (
-                        <p className="mt-1 font-mono text-[10px] text-green-400">
-                          ✓ Found — you can unsubscribe this email.
-                        </p>
+                        <p className="mt-1 font-mono text-[10px] text-green-400">✓ Found — you can unsubscribe this email.</p>
                       )}
                       {!checkingEmail && isSubscribed === false && mode === 'unsubscribe' && (
-                        <p className="mt-1 font-mono text-[10px] text-red-400">
-                          ⚠ This email is not currently subscribed.
-                        </p>
+                        <p className="mt-1 font-mono text-[10px] text-red-400">⚠ This email is not currently subscribed.</p>
                       )}
                     </div>
 
