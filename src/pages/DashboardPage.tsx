@@ -231,18 +231,20 @@ export default function DashboardPage() {
       .finally(() => setInsightsLoading(false));
   }, [isAuthenticated]);
 
-  // GET /api/newsletter/recipients is now fully public — check subscription status for all users
+  // GET /api/newsletter/recipients is public — runs for ALL authenticated users
   useEffect(() => {
-    const email = profile?.email ?? user?.email;
-    if (!isAuthenticated || !email) return;
+    const emailToCheck = profile?.email ?? user?.email;
+    if (!isAuthenticated || !emailToCheck) return;
     api.newsletter
       .recipients()
       .then((data: any) => {
-        const recipients = Array.isArray(data) ? data : data?.recipients ?? data?.subscribers ?? [];
-        const subscribed = recipients.some(
-          (entry: any) => String(entry.email ?? entry).toLowerCase() === email.toLowerCase(),
+        const recipients: any[] = Array.isArray(data) ? data : data?.recipients ?? data?.subscribers ?? [];
+        // A user is truly subscribed only if subscribed===true AND is_active is not explicitly false
+        const match = recipients.find(
+          (entry) => String(entry.email ?? entry).toLowerCase() === emailToCheck.toLowerCase(),
         );
-        setProfile((prev) => prev ? { ...prev, subscribed_newsletter: subscribed } : prev);
+        const isSubscribed = !!match && match.subscribed === true && match.is_active !== false;
+        setProfile((prev) => prev ? { ...prev, subscribed_newsletter: isSubscribed } : prev);
       })
       .catch(() => undefined);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,19 +262,19 @@ export default function DashboardPage() {
     setNewsletterMessage('');
     try {
       if (nextSubscribed) {
-        // POST /api/newsletter/subscribe — body must be { email, name }
+        // POST /api/newsletter/subscribe — body: { email: string, name?: string }
         await api.newsletter.subscribe({
           email,
           name: profile?.display_name ?? profile?.full_name ?? user?.fullName ?? '',
         });
       } else {
-        // POST /api/newsletter/unsubscribe — body must be { email }
+        // POST /api/newsletter/unsubscribe — body: { email: string }
         await api.newsletter.unsubscribe({ email });
       }
       setProfile((prev) => prev ? { ...prev, subscribed_newsletter: nextSubscribed } : prev);
       setNewsletterMessage(nextSubscribed ? 'Subscribed to newsletter!' : 'Unsubscribed from newsletter.');
     } catch (err: any) {
-      // Surface FastAPI 422 detail messages if present
+      // Surface FastAPI 422 detail[] messages
       const detail = err?.detail ?? err?.response?.data?.detail;
       const humanMsg = Array.isArray(detail)
         ? detail.map((d: any) => d.msg ?? String(d)).join(', ')
