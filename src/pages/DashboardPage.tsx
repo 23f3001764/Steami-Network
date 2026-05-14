@@ -231,17 +231,22 @@ export default function DashboardPage() {
       .finally(() => setInsightsLoading(false));
   }, [isAuthenticated]);
 
+  // GET /api/newsletter/recipients is now fully public — check subscription status for all users
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin' || !user.email) return;
+    const email = profile?.email ?? user?.email;
+    if (!isAuthenticated || !email) return;
     api.newsletter
       .recipients()
       .then((data: any) => {
         const recipients = Array.isArray(data) ? data : data?.recipients ?? data?.subscribers ?? [];
-        const subscribed = recipients.some((entry: any) => String(entry.email ?? entry).toLowerCase() === user.email.toLowerCase());
+        const subscribed = recipients.some(
+          (entry: any) => String(entry.email ?? entry).toLowerCase() === email.toLowerCase(),
+        );
         setProfile((prev) => prev ? { ...prev, subscribed_newsletter: subscribed } : prev);
       })
       .catch(() => undefined);
-  }, [isAuthenticated, user?.email, user?.role]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, profile?.email, user?.email]);
 
   const toggleNewsletter = async () => {
     const email = profile?.email ?? user?.email;
@@ -255,14 +260,26 @@ export default function DashboardPage() {
     setNewsletterMessage('');
     try {
       if (nextSubscribed) {
-        await api.newsletter.subscribe(email, profile?.display_name ?? profile?.full_name ?? user?.fullName ?? '');
+        // POST /api/newsletter/subscribe — body must be { email, name }
+        await api.newsletter.subscribe({
+          email,
+          name: profile?.display_name ?? profile?.full_name ?? user?.fullName ?? '',
+        });
       } else {
-        await api.newsletter.unsubscribe(email);
+        // POST /api/newsletter/unsubscribe — body must be { email }
+        await api.newsletter.unsubscribe({ email });
       }
       setProfile((prev) => prev ? { ...prev, subscribed_newsletter: nextSubscribed } : prev);
-      setNewsletterMessage(nextSubscribed ? 'Newsletter subscribed.' : 'Newsletter unsubscribed.');
+      setNewsletterMessage(nextSubscribed ? 'Subscribed to newsletter!' : 'Unsubscribed from newsletter.');
     } catch (err: any) {
-      setNewsletterMessage(err?.message || 'Newsletter update failed.');
+      // Surface FastAPI 422 detail messages if present
+      const detail = err?.detail ?? err?.response?.data?.detail;
+      const humanMsg = Array.isArray(detail)
+        ? detail.map((d: any) => d.msg ?? String(d)).join(', ')
+        : typeof detail === 'string'
+          ? detail
+          : err?.message ?? 'Newsletter update failed. Please try again.';
+      setNewsletterMessage(humanMsg);
     } finally {
       setNewsletterLoading(false);
     }

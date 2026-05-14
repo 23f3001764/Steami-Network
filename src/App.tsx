@@ -19,6 +19,7 @@ import ChatPage from "./pages/ChatPage";
 import InterestsPage from "./pages/InterestsPage";
 import ProfilePage from "./pages/ProfilePage";
 import InsightsPage from "./pages/InsightsPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";       // ← NEW
 import { CursorEffect } from "@/components/CursorEffect";
 import { RelatedContentFloatingPanel } from "@/components/RelatedContentFloatingPanel";
 
@@ -51,6 +52,7 @@ function AnimatedRoutes() {
           <Route path="/moderation" element={<ModerationPage />} />
           <Route path="/api-console" element={<ApiConsolePage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />   {/* ← NEW */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>

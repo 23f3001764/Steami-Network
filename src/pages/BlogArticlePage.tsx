@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SteamiLayout } from '@/components/SteamiLayout';
@@ -17,6 +17,7 @@ import { useThemeStore } from '@/stores/theme-store';
 import { Trash2, Share2, Twitter, Linkedin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, apiAssetUrl } from '@/lib/api';
+import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,6 +82,9 @@ export default function BlogArticlePage() {
 
   const [post, setPost]   = useState<any>(null);
   const [error, setError] = useState('');
+
+  /** Ref scoped to the article body — TextSelectionPopover listens here only */
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -178,7 +182,19 @@ export default function BlogArticlePage() {
               </motion.div>
             )}
 
-            <BlogContent content={post.content} />
+            {/* Article body — TextSelectionPopover listens to mouseup inside this div only */}
+            <div ref={contentRef}>
+              <BlogContent content={post.content} />
+            </div>
+
+            {/* Text-selection toolbar — scoped to article body, not sidebar/insights */}
+            <TextSelectionPopover
+              containerRef={contentRef}
+              source={post.title}
+              sourceType="article"
+              field={post.field}
+              sourceId={post.id}
+            />
 
             {/* Knowledge Graph */}
             <div className="my-10">

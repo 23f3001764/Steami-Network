@@ -23,11 +23,37 @@ interface Props {
 }
 
 export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
-  const [email,  setEmail]  = useState(initialEmail);
-  const [name,   setName]   = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [message, setMessage] = useState('');
+  const [email,    setEmail]    = useState(initialEmail);
+  const [name,     setName]     = useState('');
+  const [status,   setStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message,  setMessage]  = useState('');
+  /** null = unchecked, true = is subscribed, false = not subscribed */
+  const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Hit GET /api/newsletter/recipients (public, no token needed) to check whether
+   * the entered email is already in the subscriber list.
+   */
+  const checkEmailSubscription = async (emailToCheck: string) => {
+    if (!emailToCheck.includes('@')) { setIsSubscribed(null); return; }
+    setCheckingEmail(true);
+    try {
+      const data: any = await api.newsletter.recipients();
+      const recipients: any[] = Array.isArray(data)
+        ? data
+        : data?.recipients ?? data?.subscribers ?? [];
+      const found = recipients.some(
+        (entry) => String(entry.email ?? entry).toLowerCase() === emailToCheck.toLowerCase(),
+      );
+      setIsSubscribed(found);
+    } catch {
+      setIsSubscribed(null); // can't tell — let server decide
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
 
   // Reset when modal opens/closes or mode changes
   useEffect(() => {
@@ -35,6 +61,9 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
     setName('');
     setStatus('idle');
     setMessage('');
+    setIsSubscribed(null);
+    // Auto-check the pre-filled email (e.g. from unsubscribe link in email)
+    if (mode && initialEmail) checkEmailSubscription(initialEmail);
     if (mode) setTimeout(() => inputRef.current?.focus(), 120);
   }, [mode, initialEmail]);
 
@@ -47,26 +76,49 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
   }, [mode, onClose]);
 
   const submit = async () => {
-    if (!email.trim() || !email.includes('@')) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
       setStatus('error');
       setMessage('Please enter a valid email address.');
       return;
     }
+
+    // Guard: warn user if the subscription state conflicts with their action
+    if (mode === 'subscribe' && isSubscribed === true) {
+      setStatus('error');
+      setMessage('This email is already subscribed to the newsletter.');
+      return;
+    }
+    if (mode === 'unsubscribe' && isSubscribed === false) {
+      setStatus('error');
+      setMessage("This email isn't subscribed — nothing to unsubscribe.");
+      return;
+    }
+
     setStatus('loading');
     setMessage('');
     try {
       if (mode === 'subscribe') {
-        await api.newsletter.subscribe({ email: email.trim(), name: name.trim() });
+        // POST /api/newsletter/subscribe — body: { email: string, name?: string }
+        await api.newsletter.subscribe({ email: trimmedEmail, name: name.trim() });
         setStatus('success');
         setMessage("You're subscribed! Welcome to STEAMI — expect your first digest soon. 🚀");
       } else {
-        await api.newsletter.unsubscribe({ email: email.trim() });
+        // POST /api/newsletter/unsubscribe — body: { email: string }
+        await api.newsletter.unsubscribe({ email: trimmedEmail });
         setStatus('success');
         setMessage("You've been unsubscribed. You won't receive further newsletter emails.");
       }
     } catch (e: any) {
+      // Surface FastAPI 422 validation detail if present
+      const detail = e?.detail ?? e?.response?.data?.detail;
+      const humanMsg = Array.isArray(detail)
+        ? detail.map((d: any) => d.msg ?? String(d)).join(', ')
+        : typeof detail === 'string'
+          ? detail
+          : e?.message ?? 'Something went wrong. Please try again.';
       setStatus('error');
-      setMessage(e.message || 'Something went wrong. Please try again.');
+      setMessage(humanMsg);
     }
   };
 
@@ -158,11 +210,38 @@ export function NewsletterModal({ mode, initialEmail = '', onClose }: Props) {
                         ref={inputRef}
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => { setEmail(e.target.value); setIsSubscribed(null); }}
+                        onBlur={(e) => checkEmailSubscription(e.target.value.trim())}
                         placeholder="you@example.com"
                         onKeyDown={(e) => e.key === 'Enter' && submit()}
                         className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px] focus:outline-none focus:border-steami-cyan/40"
                       />
+                      {/* Subscription status hint shown after blur */}
+                      {checkingEmail && (
+                        <p className="mt-1 flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" /> Checking…
+                        </p>
+                      )}
+                      {!checkingEmail && isSubscribed === true && mode === 'subscribe' && (
+                        <p className="mt-1 font-mono text-[10px] text-steami-gold">
+                          ⚠ This email is already subscribed.
+                        </p>
+                      )}
+                      {!checkingEmail && isSubscribed === false && mode === 'unsubscribe' && (
+                        <p className="mt-1 font-mono text-[10px] text-steami-red">
+                          ⚠ This email is not currently subscribed.
+                        </p>
+                      )}
+                      {!checkingEmail && isSubscribed === false && mode === 'subscribe' && (
+                        <p className="mt-1 font-mono text-[10px] text-steami-green">
+                          ✓ Email available to subscribe.
+                        </p>
+                      )}
+                      {!checkingEmail && isSubscribed === true && mode === 'unsubscribe' && (
+                        <p className="mt-1 font-mono text-[10px] text-steami-green">
+                          ✓ Found — you can unsubscribe this email.
+                        </p>
+                      )}
                     </div>
 
                     {/* Name — subscribe only */}
