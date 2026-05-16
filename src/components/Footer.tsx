@@ -1,5 +1,5 @@
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { api } from '@/lib/api';
 
@@ -68,6 +68,7 @@ const socialIcons = [
 ];
 
 function FooterColumn({ title, links }: { title: string; links: { name: string; href: string; external?: boolean }[] }) {
+  const location = useLocation();
   return (
     <motion.div variants={fadeUp} className="flex flex-col gap-4">
       <h3 className="font-mono text-[13px] font-semibold tracking-wider text-foreground uppercase">{title}</h3>
@@ -87,6 +88,7 @@ function FooterColumn({ title, links }: { title: string; links: { name: string; 
             ) : (
               <Link
                 to={link.href}
+                onClick={(e) => { if (location.pathname === link.href) e.preventDefault(); }}
                 className="group relative inline-flex items-center text-[14px] text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 <span className="relative z-10">{link.name}</span>
@@ -198,6 +200,7 @@ function NewsletterSection() {
 }
 
 export function Footer() {
+  const location = useLocation();
   return (
     <footer className="relative w-full border-t border-white/5 bg-background/40 backdrop-blur-xl mt-20 overflow-hidden">
       {/* Decorative gradient background similar to stemonef.world */}
@@ -218,7 +221,11 @@ export function Footer() {
           {/* Brand Section */}
           <motion.div variants={fadeUp} className="lg:col-span-2 flex flex-col gap-6">
             <div>
-              <Link to="/" className="font-mono text-[20px] font-bold tracking-wider group shrink-0 inline-block">
+              <Link 
+                to="/" 
+                onClick={(e) => { if (location.pathname === '/') e.preventDefault(); }}
+                className="font-mono text-[20px] font-bold tracking-wider group shrink-0 inline-block"
+              >
                 <motion.span
                   className="text-steami-gold inline-block drop-shadow-sm group-hover:drop-shadow-[0_0_8px_rgba(232,184,75,0.4)] transition-all duration-200"
                   whileHover={{ scale: 1.05 }}

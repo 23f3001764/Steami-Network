@@ -66,12 +66,14 @@ export default function BlogListingPage() {
                   }}
                 />
                 <CardSvgVisual field={post.field} variant="mini" className="absolute bottom-2 right-2 opacity-50" />
-                <span className={`steami-badge steami-badge-${post.badgeColor} absolute top-4 left-4 text-[10px]`}>
-                  {post.field}
-                </span>
               </div>
 
               <div className="p-5 flex flex-col flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`steami-badge steami-badge-${post.badgeColor} text-[10px]`}>
+                    {post.field}
+                  </span>
+                </div>
                 <h2 className="font-serif text-[17px] font-bold text-foreground mb-2 leading-snug line-clamp-2">
                   {post.title}
                 </h2>

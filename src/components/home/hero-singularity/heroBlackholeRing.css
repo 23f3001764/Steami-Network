@@ -1,0 +1,157 @@
+.hero-bh-ring-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* z-index removed to allow children to sandwich siblings */
+}
+
+.hero-bh-ring-overlay.is-dark {
+  --ring-core: rgba(255, 255, 245, 0.92);
+  --ring-hot: rgba(177, 229, 255, 0.72);
+  --ring-mid: rgba(90, 166, 255, 0.36);
+  --ring-warm: rgba(255, 210, 116, 0.34);
+  --ring-edge: rgba(255, 255, 255, 0);
+  --ring-shadow: rgba(135, 205, 255, 0.32);
+}
+
+.hero-bh-ring-overlay.is-light {
+  --ring-core: rgba(20, 24, 34, 0.86);
+  --ring-hot: rgba(196, 119, 32, 0.58);
+  --ring-mid: rgba(92, 65, 38, 0.32);
+  --ring-warm: rgba(225, 158, 54, 0.44);
+  --ring-edge: rgba(255, 255, 255, 0);
+  --ring-shadow: rgba(22, 31, 46, 0.22);
+}
+
+.hero-bh-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(380px, 60vw, 750px);
+  height: clamp(140px, 22vw, 280px);
+  border-radius: 999px;
+  transform: translate(-50%, -50%) rotate(-7deg);
+  pointer-events: none;
+  animation: bh-ring-breathe 5.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.hero-bh-ring-back {
+  z-index: 1;
+  opacity: 0.68;
+  filter: blur(12px);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 35%,
+    var(--ring-mid) 46%,
+    var(--ring-hot) 50%,
+    var(--ring-mid) 56%,
+    transparent 72%
+  );
+}
+
+.hero-bh-ring-core {
+  z-index: 2;
+  opacity: 0.9;
+  filter: blur(1.2px);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 38%,
+    var(--ring-warm) 45%,
+    var(--ring-core) 50%,
+    var(--ring-hot) 53%,
+    transparent 66%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 16%,
+    #000 84%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 16%,
+    #000 84%,
+    transparent 100%
+  );
+}
+
+.hero-bh-ring-core::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 35%,
+    rgba(255, 255, 255, 0.35) 48%,
+    rgba(255, 255, 255, 0) 62%,
+    transparent 100%
+  );
+  transform: translateX(-35%);
+  animation: bh-ring-shimmer 4.4s linear infinite;
+}
+
+.hero-bh-ring-front {
+  z-index: 5;
+  opacity: 0.86;
+  filter: blur(0.6px);
+  clip-path: inset(48% 0 0 0); /* Only show top half to simulate occlusion by the hole body */
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 39%,
+    var(--ring-core) 48%,
+    var(--ring-hot) 52%,
+    transparent 64%
+  );
+}
+
+.hero-bh-ring-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0.4;
+  background-image: 
+    radial-gradient(circle at 30% 40%, var(--ring-core) 1px, transparent 1px),
+    radial-gradient(circle at 70% 60%, var(--ring-hot) 1px, transparent 1px),
+    radial-gradient(circle at 45% 45%, var(--ring-warm) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 55% 55%, var(--ring-core) 0.5px, transparent 0.5px);
+  background-size: 100px 40px;
+  animation: bh-ring-particles 20s linear infinite;
+}
+
+@keyframes bh-ring-breathe {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(-7deg) scaleX(1) scaleY(1);
+    opacity: 0.82;
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(-7deg) scaleX(1.025) scaleY(0.985);
+    opacity: 1;
+  }
+}
+
+@keyframes bh-ring-shimmer {
+  from { transform: translateX(-50%) skewX(-20deg); }
+  to { transform: translateX(50%) skewX(-20deg); }
+}
+
+@keyframes bh-ring-particles {
+  from { background-position: 0 0; }
+  to { background-position: 100px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-bh-ring,
+  .hero-bh-ring-core::after,
+  .hero-bh-ring-particles {
+    animation: none !important;
+  }
+}

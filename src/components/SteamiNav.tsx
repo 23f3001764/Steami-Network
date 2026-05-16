@@ -102,9 +102,10 @@ export function SteamiNav() {
 
   // ── Nav links ───────────────────────────────────────────────────────────────
   const navLinks = [
-    { path: '/',            label: 'EXPLAINERS' },
-    { path: '/blog',        label: 'INTELLIGENCE' },
-    { path: '/research',    label: 'RESEARCH' },
+    { path: '/', label: 'HOME' },
+    { path: '/explainers', label: 'EXPLAINERS' },
+    { path: '/blog', label: 'INTELLIGENCE' },
+    { path: '/research', label: 'RESEARCH' },
     { path: '/simulations', label: 'SIMULATIONS' },
     ...(isAuthenticated ? [{ path: '/dashboard', label: 'DASHBOARD' }] : []),
     ...(user?.role === 'mod' || user?.role === 'admin' ? [{ path: '/moderation', label: 'MOD' }] : []),
@@ -257,8 +258,11 @@ export function SteamiNav() {
           boxShadow: isLight ? '0 1px 24px rgba(147, 197, 253, 0.15)' : '0 1px 32px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Logo */}
-        <Link to="/" className="font-mono text-[18px] sm:text-[20px] font-bold tracking-wider group shrink-0">
+        <Link 
+          to="/" 
+          onClick={(e) => { if (location.pathname === '/') e.preventDefault(); }}
+          className="font-mono text-[18px] sm:text-[20px] font-bold tracking-wider group shrink-0"
+        >
           <motion.span
             className="text-steami-gold inline-block drop-shadow-sm group-hover:drop-shadow-[0_0_8px_rgba(232,184,75,0.4)] transition-all duration-200"
             whileHover={{ scale: 1.05 }}
@@ -283,6 +287,7 @@ export function SteamiNav() {
               >
                 <Link
                   to={link.path}
+                  onClick={(e) => { if (isActive) e.preventDefault(); }}
                   className={`group relative font-mono text-[16px] tracking-[0.12em] uppercase transition-colors duration-200 ease-in-out ${
                     isActive ? 'text-steami-cyan' : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -713,7 +718,12 @@ export function SteamiNav() {
                     >
                       <Link
                         to={link.path}
-                        onClick={closeMenu}
+                        onClick={(e) => { 
+                          if (isActive) {
+                            e.preventDefault();
+                          }
+                          closeMenu(); 
+                        }}
                         className={`block font-mono text-[15px] sm:text-[17px] tracking-[0.08em] sm:tracking-[0.12em] uppercase py-2.5 px-3 rounded-lg transition-colors break-words ${
                           isActive ? 'text-steami-cyan bg-accent/10' : 'text-foreground/70 hover:text-foreground hover:bg-accent/5'
                         }`}

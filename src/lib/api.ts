@@ -95,24 +95,8 @@ export const api = {
     newsletterRecipients: () => apiRequest("/api/auth/newsletter/recipients"),
   },
 
-  /**
-   * Profile endpoints — /api/profile/*
-   * Backed by profile_router.py registered at prefix /api/profile
-   *
-   * Validation rules (mirror these on the frontend):
-   *   username  : /^[a-zA-Z0-9_]{3,30}$/
-   *   password  : /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
-   *   avatar_url: http/https + image extension, or trusted host
-   */
   profile: {
-    /** GET /api/profile/me — full profile */
     me: () => apiRequest("/api/profile/me"),
-
-    /**
-     * PATCH /api/profile/me — update name, username, bio, location,
-     * website, profession, interests, subscribe_email.
-     * Only fields you pass are updated (partial update).
-     */
     update: (body: {
       full_name?: string;
       username?: string;
@@ -123,23 +107,13 @@ export const api = {
       interests?: string[];
       subscribe_email?: boolean;
     }) => apiRequest("/api/profile/me", { method: "PATCH", body }),
-
-    /** PATCH /api/profile/me/email — change email (requires current password) */
     changeEmail: (body: { email: string; password: string }) =>
       apiRequest("/api/profile/me/email", { method: "PATCH", body }),
-
-    /** PATCH /api/profile/me/password — change password */
     changePassword: (body: { current_password: string; new_password: string }) =>
       apiRequest("/api/profile/me/password", { method: "PATCH", body }),
-
-    /** PATCH /api/profile/me/avatar — set avatar via URL */
     setAvatar: (avatar_url: string) =>
       apiRequest("/api/profile/me/avatar", { method: "PATCH", body: { avatar_url } }),
-
-    /** DELETE /api/profile/me/avatar — remove avatar */
     removeAvatar: () => apiRequest("/api/profile/me/avatar", { method: "DELETE" }),
-
-    /** DELETE /api/profile/me — delete own account (requires password) */
     deleteAccount: (password: string) =>
       apiRequest("/api/profile/me", { method: "DELETE", body: { password } }),
   },
@@ -153,29 +127,14 @@ export const api = {
     test: (to_email: string, draft?: Record<string, any>, subject?: string) => apiRequest("/api/newsletter/test", { method: "POST", body: { to_email, draft, subject } }),
     aiSubscribe: (body: { email: string; name?: string; source?: string; metadata?: Record<string, unknown> }) =>
       apiRequest("/api/newsletter/ai-subscribe", { method: "POST", body }),
-
-    /** MOD/ADMIN — load saved draft */
     getDraft: () =>
       apiRequest<{ draft: Record<string, any> | null }>("/api/newsletter/draft"),
-
-    /** MOD/ADMIN — save / overwrite the draft */
     saveDraft: (draft: Record<string, any>) =>
       apiRequest<{ saved: boolean; doc_id: string }>("/api/newsletter/draft/save", { method: "POST", body: draft }),
-
-    /**
-     * MOD/ADMIN — original simple chart generation (backwards compat).
-     * Prefer generateCoverStoryChart for new usage.
-     */
     generateChart: (body: { article_id: string; title: string; summary?: string; domain?: string }) =>
       apiRequest<{ chart_image_url: string; explanation: string; article_id: string }>(
         "/api/newsletter/draft/chart", { method: "POST", body }
       ),
-
-    /**
-     * MOD/ADMIN — AI cover story via ollama_agent.generate_cover_story().
-     * Returns headline, standfirst, body_paragraphs, pull_quote, key_stats,
-     * chart_data, chart_subject, closing_line, reading_time_min, domain, formatted_summary.
-     */
     generateCoverStory: (body: {
       article_id: string; title: string; content?: string; summary?: string;
       domain?: string; article_url?: string; fetched_at?: string; matched_domains?: string[];
@@ -188,11 +147,6 @@ export const api = {
         closing_line: string; reading_time_min: number;
         domain: string; formatted_summary: string;
       }>("/api/newsletter/draft/cover-story", { method: "POST", body }),
-
-    /**
-     * MOD/ADMIN — AI chart via ollama_agent.generate_newsletter_chart().
-     * Returns chart_image_url, explanation, chart_type, success, error.
-     */
     generateCoverStoryChart: (body: {
       article_id: string; title: string; content?: string; summary?: string;
       domain?: string; article_url?: string; fetched_at?: string; matched_domains?: string[];
@@ -201,14 +155,10 @@ export const api = {
         article_id: string; chart_image_url: string; explanation: string;
         chart_type: string; success: boolean; error: string;
       }>("/api/newsletter/draft/cover-story-chart", { method: "POST", body }),
-
-    /** MOD/ADMIN — render draft to HTML for iframe preview (no email sent) */
     previewDraft: (draft: Record<string, any>) =>
       apiRequest<{ html: string; subject: string; articles_included: number }>(
         "/api/newsletter/preview-draft", { method: "POST", body: draft }
       ),
-
-    /** ADMIN only — send the drafted newsletter to all subscribers */
     sendCustom: (draft: Record<string, any>) =>
       apiRequest<{ sent: number; failed: number; total_subscribers: number; log_id: string }>(
         "/api/newsletter/send-custom", { method: "POST", body: draft }
@@ -265,10 +215,6 @@ export const api = {
     explainer: (id: string) => apiRequest(`/api/explainers/${encodeURIComponent(id)}`),
     createExplainer: (body: Record<string, unknown>) => apiRequest("/api/explainers", { method: "POST", body }),
     createExplainerWithImage: (body: Record<string, string>, file: File) => {
-      // body keys: id, title, subtitle, field, badgeColor, readTime, author,
-      //            context, technicalDetail, impact,
-      //            content (JSON string array), keyInsights (JSON string array),
-      //            references (JSON string array of {title,url?,author?,type?} objects)
       const formData = new FormData();
       Object.entries(body).forEach(([key, value]) => formData.append(key, value));
       formData.append("image", file);
@@ -317,6 +263,77 @@ export const api = {
     cmsBlogPost: (id: string) => apiRequest(`/api/cms/blog/${encodeURIComponent(id)}`),
   },
 
+  // ── Simulations ─────────────────────────────────────────────────────────────
+  // GET  endpoints: PUBLIC — no auth required (every user can fetch & view)
+  // POST / PUT / DELETE: MOD or ADMIN only (enforced on the backend)
+  // ────────────────────────────────────────────────────────────────────────────
+  simulations: {
+    /** GET /api/simulations — public list, optional field / simulation_type filter */
+    list: (params?: { field?: string; simulation_type?: string }) =>
+      apiRequest(`/api/simulations${buildQuery(params)}`),
+
+    /** GET /api/simulations/{id} — public single fetch */
+    get: (id: string) =>
+      apiRequest(`/api/simulations/${encodeURIComponent(id)}`),
+
+    /** POST /api/simulations — MOD/ADMIN create (JSON body) */
+    create: (body: {
+      id:              string;
+      title:           string;
+      field?:          string;
+      fieldColor?:     string;
+      description?:    string;
+      caption?:        string;
+      readTime?:       string;
+      simulation_type?: string;
+      component_id?:   string;
+      insights?:       string[];
+      tags?:           string[];
+    }) => apiRequest("/api/simulations", { method: "POST", body }),
+
+    /** PUT /api/simulations/{id} — MOD/ADMIN update */
+    update: (id: string, body: Record<string, unknown>) =>
+      apiRequest(`/api/simulations/${encodeURIComponent(id)}`, { method: "PUT", body }),
+
+    /** DELETE /api/simulations/{id} — ADMIN only */
+    delete: (id: string) =>
+      apiRequest(`/api/simulations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+    /**
+     * POST /api/simulations/{id}/snapshot — MOD/ADMIN
+     * Uploads a base64 PNG captured from canvas.toDataURL() to Cloudinary.
+     * Pass the raw data-URI string: "data:image/png;base64,<…>"
+     */
+    uploadSnapshot: (id: string, imageData: string) =>
+      apiRequest(`/api/simulations/${encodeURIComponent(id)}/snapshot`, {
+        method: "POST",
+        body: { image_data: imageData },
+      }),
+
+    /**
+     * POST /api/simulations/{id}/glb — MOD/ADMIN (multipart)
+     * Uploads a raw .glb / .gltf / .obj file to Cloudinary as a raw asset.
+     */
+    uploadGlb: (id: string, file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiRequest(`/api/simulations/${encodeURIComponent(id)}/glb`, {
+        method: "POST",
+        formData,
+      });
+    },
+
+    /** POST /api/simulations/seed — ADMIN only */
+    seed: () => apiRequest("/api/simulations/seed", { method: "POST" }),
+
+    // ── CMS helpers (MOD/ADMIN) ──────────────────────────────────────────────
+    /** GET /api/cms/simulations — slim list for CMS table */
+    cmsList: () => apiRequest("/api/cms/simulations"),
+
+    /** GET /api/cms/simulations/{id} — full doc for edit form */
+    cmsGet: (id: string) => apiRequest(`/api/cms/simulations/${encodeURIComponent(id)}`),
+  },
+
   diary: {
     create: (body: { popup_type: string; popup_id: string; title: string; selected_text: string; note?: string }) =>
       apiRequest("/api/diary", { method: "POST", body }),
@@ -355,18 +372,6 @@ export const api = {
     unread: (params?: Record<string, unknown>) => apiRequest(`/api/chat/unread${buildQuery(params)}`),
   },
 
-  /**
-   * Notifications — /api/notifications/*
-   * Public endpoint — no auth required.
-   *
-   * latest(since?, limit?)
-   *   GET /api/notifications/latest?since=<ISO-8601>&limit=<n>
-   *   Returns new Explainers, Research Articles, and Blog Posts added after `since`.
-   *   `since` defaults to 7 days ago on the server if omitted.
-   *   `limit` is per content-type, 1–50 (default 10).
-   *
-   *   Response: { total: number; since: string; items: NotificationItem[] }
-   */
   notifications: {
     latest: (since?: string | null, limit = 20) =>
       apiRequest(`/api/notifications/latest${buildQuery({ since: since ?? undefined, limit })}`),

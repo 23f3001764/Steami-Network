@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { SteamiLayout } from '@/components/SteamiLayout';
 import { ApiStatePanel, ObjectList } from '@/components/ApiStatePanel';
 import { api } from '@/lib/api';
@@ -6,550 +6,987 @@ import { useAuthStore } from '@/stores/auth-store';
 import { ShieldCheck } from 'lucide-react';
 import { NewsletterTab } from '@/components/NewsletterTab';
 
-// ─── Empty form state shapes ────────────────────────────────────────────────────
+// ── React Three Fiber + Drei ───────────────────────────────────────────────────
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import {
+  OrbitControls, Sphere, Box, Torus, Line,
+  Trail, Stars, Text, Grid,
+} from '@react-three/drei';
+import * as THREE from 'three';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter';
 
-const emptyExplainer = {
-  id: '', title: '', subtitle: '', field: '', badgeColor: '', readTime: '',
-  author: '', content: '', keyInsights: '', context: '', technicalDetail: '', impact: '',
-  references: '',  // JSON lines: one object per line — { title, url, author, type }
+// ══════════════════════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════════════════════
+
+type SimPreset = 'bloch' | 'threebody' | 'orbits' | 'wave' | 'blank';
+
+interface BuilderConfig {
+  preset:      SimPreset;
+  bgColor:     string;
+  showGrid:    boolean;
+  showStars:   boolean;
+  showAxes:    boolean;
+  speed:       number;
+  blochColor:  string;
+  vectorColor: string;
+  mass1: number; mass2: number; mass3: number;
+  waveAmp:   number;
+  waveFreq:  number;
+  waveColor: string;
+}
+
+const defaultConfig: BuilderConfig = {
+  preset: 'bloch', bgColor: '#03060f', showGrid: true, showStars: true, showAxes: true,
+  speed: 1, blochColor: '#0d2040', vectorColor: '#f5d07a',
+  mass1: 1, mass2: 1, mass3: 1.5,
+  waveAmp: 1, waveFreq: 2, waveColor: '#63b3ed',
 };
 
-const emptyResearch = {
-  id: '', title: '', field: '', abstract: '', author: '', date: '', readTime: '',
-  content: '', quotes: '', keyFindings: '', relatedTopics: '',
-};
+// ══════════════════════════════════════════════════════════════════════════════
+// 3D SCENE COMPONENTS (all self-contained)
+// ══════════════════════════════════════════════════════════════════════════════
 
-const emptyBlog = {
-  id: '', title: '', subtitle: '', description: '', field: '', badgeColor: '',
-  coverImage: '', tags: '', keyInsights: '', type: 'article', simulationUrl: '',
-  content: '', publishDate: '', readingTime: '',
-  authorName: '', authorRole: '', authorAvatar: '', authorBio: '',
-};
+function BlochScene({ cfg }: { cfg: BuilderConfig }) {
+  const vecRef  = useRef<THREE.Mesh>(null!);
+  const haloRef = useRef<THREE.Mesh>(null!);
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-const lines = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean);
-const csv   = (s: string) => s.split(',').map((l) => l.trim()).filter(Boolean);
-
-/**
- * Parse the references textarea value.
- * Each non-empty line must be valid JSON: {"title":"...","url":"...","author":"...","type":"..."}
- * Lines that fail JSON.parse are treated as plain-text titles: { title: line }.
- */
-const parseReferences = (s: string): Array<{ title: string; url?: string; author?: string; type?: string }> =>
-  s.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
-    try { return JSON.parse(l); } catch { return { title: l }; }
+  useFrame(({ clock }) => {
+    const t  = clock.getElapsedTime() * cfg.speed;
+    const th = Math.PI / 2 + Math.sin(t * 0.8) * 0.5;
+    const ph = t * 0.7;
+    const x  = Math.sin(th) * Math.cos(ph) * 1.5;
+    const y  = Math.cos(th) * 1.5;
+    const z  = Math.sin(th) * Math.sin(ph) * 1.5;
+    vecRef.current?.position.set(x, y, z);
+    if (haloRef.current) {
+      haloRef.current.position.set(x, y, z);
+      haloRef.current.scale.setScalar(1 + 0.1 * Math.sin(t * 2));
+    }
   });
 
-// ─── Reusable field components ─────────────────────────────────────────────────
+  const axisPairs: [THREE.Vector3, THREE.Vector3][] = [
+    [new THREE.Vector3(0,0,0), new THREE.Vector3(0, 2,0)],
+    [new THREE.Vector3(0,0,0), new THREE.Vector3(0,-2,0)],
+    [new THREE.Vector3(0,0,0), new THREE.Vector3( 2,0,0)],
+    [new THREE.Vector3(0,0,0), new THREE.Vector3(-2,0,0)],
+  ];
+  const axisColors = ['#26de81','#fc5c65','#63b3ed','#a78bfa'];
 
-function Field({
-  label, value, onChange, placeholder = '', required = false, disabled = false,
-}: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; required?: boolean; disabled?: boolean;
+  return (
+    <group>
+      <Sphere args={[1.5, 32, 24]}>
+        <meshBasicMaterial color={cfg.blochColor} transparent opacity={0.45} side={THREE.DoubleSide} />
+      </Sphere>
+      <Torus args={[1.5, 0.012, 6, 64]} rotation={[Math.PI/2, 0, 0]}>
+        <meshBasicMaterial color="#1a3a70" transparent opacity={0.5} />
+      </Torus>
+      <Torus args={[1.5, 0.012, 6, 64]}>
+        <meshBasicMaterial color="#1a3a70" transparent opacity={0.5} />
+      </Torus>
+      {cfg.showAxes && axisPairs.map((pts, i) => (
+        <Line key={i} points={pts} color={axisColors[i]} lineWidth={1.5} transparent opacity={0.5} />
+      ))}
+      <mesh ref={vecRef}>
+        <sphereGeometry args={[0.1, 10, 10]} />
+        <meshBasicMaterial color={cfg.vectorColor} />
+      </mesh>
+      <mesh ref={haloRef}>
+        <sphereGeometry args={[0.18, 10, 10]} />
+        <meshBasicMaterial color={cfg.vectorColor} transparent opacity={0.18} />
+      </mesh>
+      <Text position={[0, 1.8, 0]} fontSize={0.18} color="#26de81" anchorX="center">|0⟩</Text>
+      <Text position={[0,-1.8, 0]} fontSize={0.18} color="#fc5c65" anchorX="center">|1⟩</Text>
+    </group>
+  );
+}
+
+function ThreeBodyScene({ cfg }: { cfg: BuilderConfig }) {
+  const G = 0.8;
+  const bodiesRef = useRef([
+    { pos: new THREE.Vector3(-1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: cfg.mass1 },
+    { pos: new THREE.Vector3( 1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: cfg.mass2 },
+    { pos: new THREE.Vector3( 0,  0,0), vel: new THREE.Vector3(-0.694,-1.064,0), mass: cfg.mass3 },
+  ]);
+  const m0 = useRef<THREE.Mesh>(null!);
+  const m1 = useRef<THREE.Mesh>(null!);
+  const m2 = useRef<THREE.Mesh>(null!);
+  const meshRefs = [m0, m1, m2];
+  const COLORS = ['#63b3ed','#f5d07a','#fb923c'];
+
+  useFrame(() => {
+    const bs = bodiesRef.current;
+    const dt = 0.006 * cfg.speed;
+    const forces = bs.map(() => new THREE.Vector3());
+    for (let i = 0; i < 3; i++) {
+      for (let j = i+1; j < 3; j++) {
+        const diff = new THREE.Vector3().subVectors(bs[j].pos, bs[i].pos);
+        const dist = Math.max(diff.length(), 0.3);
+        const fd   = diff.normalize().multiplyScalar(G * bs[i].mass * bs[j].mass / (dist*dist));
+        forces[i].add(fd); forces[j].sub(fd);
+      }
+    }
+    bs.forEach((b,i) => {
+      b.vel.addScaledVector(forces[i], dt/b.mass);
+      b.pos.addScaledVector(b.vel, dt);
+      meshRefs[i].current?.position.copy(b.pos);
+    });
+  });
+
+  return (
+    <group>
+      <pointLight position={[0,0,4]} intensity={1.5} />
+      {COLORS.map((color, i) => (
+        <Trail key={i} width={0.8} length={40} color={color} attenuation={(t)=>t*t}>
+          <mesh ref={meshRefs[i]}>
+            <sphereGeometry args={[0.18,12,12]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
+          </mesh>
+        </Trail>
+      ))}
+    </group>
+  );
+}
+
+function WaveScene({ cfg }: { cfg: BuilderConfig }) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const geoRef  = useRef(new THREE.PlaneGeometry(8, 8, 60, 60));
+
+  useFrame(({ clock }) => {
+    const t   = clock.getElapsedTime() * cfg.speed;
+    const pos = meshRef.current?.geometry.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i);
+      const r = Math.sqrt(x*x + y*y);
+      pos.setZ(i, cfg.waveAmp * Math.sin(r * cfg.waveFreq - t * 3) * Math.exp(-r * 0.25));
+    }
+    pos.needsUpdate = true;
+    meshRef.current.geometry.computeVertexNormals();
+  });
+
+  return (
+    <group rotation={[-Math.PI/3,0,0]}>
+      <mesh ref={meshRef} geometry={geoRef.current}>
+        <meshStandardMaterial color={cfg.waveColor} wireframe transparent opacity={0.7} />
+      </mesh>
+      <pointLight position={[0,4,4]} intensity={2} color={cfg.waveColor} />
+    </group>
+  );
+}
+
+function OrbitsScene({ cfg }: { cfg: BuilderConfig }) {
+  const planets = [
+    { r:1.8, speed:1.5, size:0.12, color:'#63b3ed' },
+    { r:2.8, speed:0.9, size:0.18, color:'#f5d07a' },
+    { r:3.8, speed:0.6, size:0.14, color:'#fb923c' },
+    { r:4.8, speed:0.4, size:0.22, color:'#a78bfa' },
+  ];
+  const p0=useRef<THREE.Mesh>(null!), p1=useRef<THREE.Mesh>(null!);
+  const p2=useRef<THREE.Mesh>(null!), p3=useRef<THREE.Mesh>(null!);
+  const pRefs = [p0,p1,p2,p3];
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime() * cfg.speed;
+    planets.forEach((p,i) => {
+      pRefs[i].current?.position.set(Math.cos(t*p.speed)*p.r, 0, Math.sin(t*p.speed)*p.r);
+    });
+  });
+
+  const ring = (r: number) =>
+    Array.from({length:65},(_,i)=>{const a=(i/64)*Math.PI*2; return new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r);});
+
+  return (
+    <group>
+      <Sphere args={[0.5,20,20]}>
+        <meshStandardMaterial color="#f5d07a" emissive="#f5a623" emissiveIntensity={1.2} />
+      </Sphere>
+      <pointLight position={[0,0,0]} intensity={3} color="#fff5c0" distance={12} />
+      {planets.map((p,i) => (
+        <group key={i}>
+          {cfg.showAxes && <Line points={ring(p.r)} color={p.color} lineWidth={0.5} transparent opacity={0.2} />}
+          <Trail width={0.5} length={20} color={p.color} attenuation={(t)=>t}>
+            <mesh ref={pRefs[i]}>
+              <sphereGeometry args={[p.size,10,10]} />
+              <meshStandardMaterial color={p.color} emissive={p.color} emissiveIntensity={0.3} />
+            </mesh>
+          </Trail>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function BlankScene() {
+  return (
+    <group>
+      <Box args={[1,1,1]}><meshStandardMaterial color="#1a3a70" wireframe /></Box>
+      <pointLight position={[3,3,3]} intensity={2} />
+    </group>
+  );
+}
+
+// ── Dispatcher ────────────────────────────────────────────────────────────────
+function SceneContent({ cfg }: { cfg: BuilderConfig }) {
+  return (
+    <>
+      {cfg.showStars && <Stars radius={30} depth={10} count={800} factor={3} fade />}
+      {cfg.showGrid  && <Grid args={[12,12]} position={[0,-2.5,0]} cellColor="#0a1428" sectionColor="#0d2040" />}
+      <ambientLight intensity={0.4} />
+      {cfg.preset==='bloch'     && <BlochScene     cfg={cfg} />}
+      {cfg.preset==='threebody' && <ThreeBodyScene cfg={cfg} />}
+      {cfg.preset==='wave'      && <WaveScene      cfg={cfg} />}
+      {cfg.preset==='orbits'    && <OrbitsScene    cfg={cfg} />}
+      {cfg.preset==='blank'     && <BlankScene />}
+      <OrbitControls makeDefault enablePan enableZoom enableRotate />
+    </>
+  );
+}
+
+// ── GLBExporter — must be inside Canvas to access gl/scene ───────────────────
+function GLBExporter({ onExport }: { onExport: (blob: Blob) => void }) {
+  const { gl, scene } = useThree();
+  const onExportRef   = useRef(onExport);
+  onExportRef.current = onExport;
+
+  useEffect(() => {
+    (window as any).__r3fExportGLB = () => {
+      const exporter = new GLTFExporter();
+      exporter.parse(
+        scene,
+        (gltf) => onExportRef.current(new Blob([gltf as ArrayBuffer], { type: 'model/gltf-binary' })),
+        (err)  => console.error('GLB export error', err),
+        { binary: true }
+      );
+    };
+    (window as any).__r3fSnapshot = () => {
+      return gl.domElement.toDataURL('image/png');
+    };
+    return () => {
+      delete (window as any).__r3fExportGLB;
+      delete (window as any).__r3fSnapshot;
+    };
+  }, [scene, gl]);
+
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3D BUILDER TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const PRESETS: { id: SimPreset; icon: string; label: string; desc: string }[] = [
+  { id:'bloch',     icon:'⚛',  label:'Bloch Sphere',   desc:'Qubit superposition on the Bloch sphere' },
+  { id:'threebody', icon:'🌌', label:'Three Body',     desc:'Chaotic gravitational 3-body problem'     },
+  { id:'orbits',    icon:'🪐', label:'Orbital System', desc:'Solar system orbital mechanics'           },
+  { id:'wave',      icon:'〜', label:'Wave Function',  desc:'Quantum wave function propagation'        },
+  { id:'blank',     icon:'◻',  label:'Blank Canvas',   desc:'Start from scratch'                      },
+];
+
+function SimulationBuilderTab({ isAdmin, canModerate }: { isAdmin:boolean; canModerate:boolean }) {
+  const [cfg,         setCfg]         = useState<BuilderConfig>(defaultConfig);
+  const [simId,       setSimId]       = useState('');
+  const [simTitle,    setSimTitle]    = useState('');
+  const [simField,    setSimField]    = useState('');
+  const [simDesc,     setSimDesc]     = useState('');
+  const [simCaption,  setSimCaption]  = useState('');
+  const [simInsights, setSimInsights] = useState('');
+  const [simTags,     setSimTags]     = useState('');
+  const [status,      setStatus]      = useState('');
+  const [error,       setError]       = useState('');
+  const [exporting,   setExporting]   = useState(false);
+  const [uploading,   setUploading]   = useState(false);
+  const [glbBlob,     setGlbBlob]     = useState<Blob | null>(null);
+  const [snapshotB64, setSnapshotB64] = useState('');
+
+  const set = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) =>
+    setCfg((c) => ({ ...c, [k]: v }));
+
+  const handleGLBReady = useCallback((blob: Blob) => {
+    setGlbBlob(blob);
+    setExporting(false);
+    setStatus('GLB exported — ready to upload.');
+  }, []);
+
+  const exportGLB = () => {
+    setExporting(true); setStatus(''); setError('');
+    (window as any).__r3fExportGLB?.();
+  };
+
+  const captureSnapshot = () => {
+    const url = (window as any).__r3fSnapshot?.();
+    if (url) { setSnapshotB64(url); setStatus('Snapshot captured.'); }
+  };
+
+  const downloadGLB = () => {
+    if (!glbBlob) return;
+    const url = URL.createObjectURL(glbBlob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${simId||'sim'}.glb` });
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const uploadToBackend = async () => {
+    if (!simId)    { setError('Simulation ID is required.'); return; }
+    if (!simTitle) { setError('Title is required.'); return; }
+    setUploading(true); setStatus(''); setError('');
+    try {
+      await api.simulations.create({
+        id: simId, title: simTitle, field: simField, fieldColor: 'steami-badge-cyan',
+        description: simDesc, caption: simCaption, readTime: '10 min interactive',
+        simulation_type: cfg.preset, component_id: cfg.preset,
+        insights: simInsights.split('\n').map(l=>l.trim()).filter(Boolean),
+        tags:     simTags.split(',').map(l=>l.trim()).filter(Boolean),
+      }).catch(() => {});   // ignore duplicate — may already exist
+
+      if (snapshotB64) await api.simulations.uploadSnapshot(simId, snapshotB64);
+
+      if (glbBlob) {
+        const file = new File([glbBlob], `${simId}.glb`, { type:'model/gltf-binary' });
+        await api.simulations.uploadGlb(simId, file);
+      }
+
+      setStatus('✓ Saved & uploaded to Cloudinary!');
+    } catch (err:any) {
+      setError(err?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const inp = 'w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[13px] outline-none focus:border-steami-cyan/40';
+  const lbl = 'block text-[10px] text-muted-foreground mb-1 uppercase tracking-wider';
+
+  return (
+    <div className="lg:col-span-2 space-y-5">
+
+      {/* Header */}
+      <div className="glass-card p-5">
+        <div className="steami-section-label mb-1">🔬 3D SIMULATION BUILDER</div>
+        <p className="text-[13px] text-muted-foreground">
+          Build a live Three.js simulation using React Three Fiber, customise it with the controls,
+          then export as GLB + capture a PNG snapshot — both saved to Cloudinary automatically.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5">
+
+        {/* ── LEFT: canvas + preset picker ── */}
+        <div className="space-y-4">
+
+          {/* Preset grid */}
+          <div className="glass-card p-4">
+            <p className={lbl}>Choose Preset</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 mt-2">
+              {PRESETS.map((p) => (
+                <button key={p.id}
+                  onClick={() => set('preset', p.id)}
+                  className={`rounded-lg border p-3 text-left transition-all ${cfg.preset===p.id
+                    ? 'border-steami-cyan/60 bg-steami-cyan/10'
+                    : 'border-white/10 hover:border-white/20'}`}
+                >
+                  <div className="text-xl mb-1">{p.icon}</div>
+                  <div className="font-mono text-[11px] text-steami-cyan leading-tight">{p.label}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground mt-0.5 leading-tight hidden sm:block">{p.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Canvas */}
+          <div className="glass-card overflow-hidden relative" style={{ height:420 }}>
+            <Canvas
+              gl={{ preserveDrawingBuffer:true, antialias:true }}
+              camera={{ position:[0,2,6], fov:55 }}
+              style={{ background:cfg.bgColor, width:'100%', height:'100%' }}
+            >
+              <Suspense fallback={null}>
+                <SceneContent cfg={cfg} />
+                <GLBExporter onExport={handleGLBReady} />
+              </Suspense>
+            </Canvas>
+            <div className="absolute top-3 left-3 font-mono text-[10px] text-white/25 pointer-events-none select-none">
+              DRAG · SCROLL · RIGHT-CLICK PAN
+            </div>
+            <div className="absolute bottom-3 right-3 flex gap-2">
+              <button onClick={captureSnapshot} className="steami-btn text-[10px] px-3 py-1.5">
+                📷 SNAPSHOT
+              </button>
+              <button onClick={exportGLB} disabled={exporting} className="steami-btn text-[10px] px-3 py-1.5 disabled:opacity-50">
+                {exporting ? '⏳ EXPORTING…' : '📦 EXPORT GLB'}
+              </button>
+            </div>
+          </div>
+
+          {/* Snapshot preview */}
+          {snapshotB64 && (
+            <div className="glass-card p-3 space-y-2">
+              <p className={lbl}>Captured Snapshot</p>
+              <img src={snapshotB64} alt="Snapshot" className="w-full rounded-lg object-cover" style={{ maxHeight:160 }} />
+            </div>
+          )}
+
+          {/* GLB ready */}
+          {glbBlob && (
+            <div className="glass-card p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[11px] text-steami-green">✓ GLB ready — {(glbBlob.size/1024).toFixed(1)} KB</p>
+                <p className="font-mono text-[10px] text-muted-foreground">Uploaded to Cloudinary on Save</p>
+              </div>
+              <button onClick={downloadGLB} className="steami-btn text-[10px] px-3 py-1.5 flex-shrink-0">↓ Download</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT: controls + metadata ── */}
+        <div className="space-y-4">
+
+          {/* Scene settings */}
+          <div className="glass-card p-4 space-y-3">
+            <p className={lbl}>Scene Settings</p>
+
+            {/* Background colour */}
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] text-muted-foreground">Background</span>
+              <input type="color" value={cfg.bgColor} onChange={(e)=>set('bgColor',e.target.value)}
+                className="w-10 h-7 rounded cursor-pointer border border-white/10" />
+            </div>
+
+            {/* Speed */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[11px] text-muted-foreground">Speed</span>
+              <input type="range" min="0.1" max="4" step="0.1" value={cfg.speed}
+                onChange={(e)=>set('speed',+e.target.value)}
+                className="w-24 accent-[hsl(var(--steami-cyan))]" />
+              <span className="font-mono text-[10px] w-8">{cfg.speed.toFixed(1)}×</span>
+            </div>
+
+            {/* Toggles */}
+            {(['showGrid','showStars','showAxes'] as const).map((k) => (
+              <div key={k} className="flex items-center justify-between">
+                <span className="font-mono text-[11px] text-muted-foreground capitalize">{k.replace('show','')}</span>
+                <button onClick={()=>set(k,!cfg[k])}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${cfg[k] ? 'bg-steami-cyan' : 'bg-white/10'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${cfg[k] ? 'left-5' : 'left-0.5'}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Preset-specific controls */}
+          {cfg.preset==='bloch' && (
+            <div className="glass-card p-4 space-y-3">
+              <p className={lbl}>Bloch Sphere</p>
+              {([['blochColor','Sphere Color'],['vectorColor','Vector Color']] as const).map(([k,label])=>(
+                <div key={k} className="flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
+                  <input type="color" value={cfg[k]} onChange={(e)=>set(k,e.target.value)}
+                    className="w-10 h-7 rounded cursor-pointer border border-white/10" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {cfg.preset==='threebody' && (
+            <div className="glass-card p-4 space-y-3">
+              <p className={lbl}>Mass Ratios</p>
+              {(['mass1','mass2','mass3'] as const).map((k,i)=>(
+                <div key={k} className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] text-muted-foreground w-12">Body {i+1}</span>
+                  <input type="range" min="0.2" max="5" step="0.1" value={cfg[k]}
+                    onChange={(e)=>set(k,+e.target.value)}
+                    className="flex-1 accent-[hsl(var(--steami-orange))]" />
+                  <span className="font-mono text-[10px] w-8 text-right">{cfg[k].toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {cfg.preset==='wave' && (
+            <div className="glass-card p-4 space-y-3">
+              <p className={lbl}>Wave Function</p>
+              {([['waveAmp','Amplitude',0.2,3],['waveFreq','Frequency',0.5,6]] as const).map(([k,label,min,max])=>(
+                <div key={k} className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] text-muted-foreground w-20">{label}</span>
+                  <input type="range" min={min} max={max} step="0.1" value={cfg[k as 'waveAmp'|'waveFreq']}
+                    onChange={(e)=>set(k as any,+e.target.value)}
+                    className="flex-1 accent-[hsl(var(--steami-cyan))]" />
+                  <span className="font-mono text-[10px] w-8 text-right">{(cfg[k as 'waveAmp'|'waveFreq']).toFixed(1)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[11px] text-muted-foreground">Color</span>
+                <input type="color" value={cfg.waveColor} onChange={(e)=>set('waveColor',e.target.value)}
+                  className="w-10 h-7 rounded cursor-pointer border border-white/10" />
+              </div>
+            </div>
+          )}
+
+          {/* Metadata + upload */}
+          <div className="glass-card p-4 space-y-3">
+            <p className={lbl}>Save to Backend</p>
+            <div><label className={lbl}>ID (slug) <span className="text-steami-red">*</span></label>
+              <input className={inp} value={simId} onChange={(e)=>setSimId(e.target.value)} placeholder="e.g. wave-function" /></div>
+            <div><label className={lbl}>Title <span className="text-steami-red">*</span></label>
+              <input className={inp} value={simTitle} onChange={(e)=>setSimTitle(e.target.value)} placeholder="e.g. Wave Function Collapse" /></div>
+            <div><label className={lbl}>Field</label>
+              <input className={inp} value={simField} onChange={(e)=>setSimField(e.target.value)} placeholder="e.g. QUANTUM PHYSICS" /></div>
+            <div><label className={lbl}>Description</label>
+              <textarea className={inp} rows={2} value={simDesc} onChange={(e)=>setSimDesc(e.target.value)} placeholder="Short description for the card…" /></div>
+            <div><label className={lbl}>Caption (below canvas)</label>
+              <input className={inp} value={simCaption} onChange={(e)=>setSimCaption(e.target.value)} placeholder="Drag to rotate…" /></div>
+            <div><label className={lbl}>Key Insights (one per line)</label>
+              <textarea className={inp} rows={3} value={simInsights} onChange={(e)=>setSimInsights(e.target.value)} placeholder={'Insight one\nInsight two'} /></div>
+            <div><label className={lbl}>Tags (comma-separated)</label>
+              <input className={inp} value={simTags} onChange={(e)=>setSimTags(e.target.value)} placeholder="quantum, physics, interactive" /></div>
+
+            {status && <p className="font-mono text-[11px] text-steami-green">{status}</p>}
+            {error  && <p className="font-mono text-[11px] text-steami-red">{error}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={uploadToBackend} disabled={uploading||!canModerate}
+                className="steami-btn text-[11px] flex-1 disabled:opacity-40">
+                {uploading ? '⏳ SAVING…' : '⬆ SAVE & UPLOAD'}
+              </button>
+              {isAdmin && (
+                <button onClick={async()=>{
+                  setStatus('');setError('');
+                  try{const r=await api.simulations.seed();setStatus(`Seeded ${r?.seeded??'?'}.`);}
+                  catch(e:any){setError(e.message);}
+                }} className="steami-btn text-[11px]" title="Seed defaults (admin)">↻ Seed</button>
+              )}
+            </div>
+            <p className="font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
+              SAVE & UPLOAD: (1) creates the DB record, (2) uploads snapshot PNG, (3) uploads GLB — all to Cloudinary.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHARED FORM STATE + HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+const emptyExplainer = {
+  id:'',title:'',subtitle:'',field:'',badgeColor:'',readTime:'',author:'',
+  content:'',keyInsights:'',context:'',technicalDetail:'',impact:'',references:'',
+};
+const emptyResearch = {
+  id:'',title:'',field:'',abstract:'',author:'',date:'',readTime:'',
+  content:'',quotes:'',keyFindings:'',relatedTopics:'',
+};
+const emptyBlog = {
+  id:'',title:'',subtitle:'',description:'',field:'',badgeColor:'',
+  coverImage:'',tags:'',keyInsights:'',type:'article',simulationUrl:'',
+  content:'',publishDate:'',readingTime:'',
+  authorName:'',authorRole:'',authorAvatar:'',authorBio:'',
+};
+const emptySimulation = {
+  id:'',title:'',field:'',fieldColor:'steami-badge-cyan',
+  description:'',caption:'',readTime:'10 min interactive',
+  simulation_type:'custom',component_id:'',insights:'',tags:'',
+};
+
+const lines = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean);
+const csv   = (s:string) => s.split(',').map(l=>l.trim()).filter(Boolean);
+const parseRefs = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+  try{return JSON.parse(l);}catch{return{title:l};}
+});
+
+function Field({label,value,onChange,placeholder='',required=false,disabled=false}:{
+  label:string;value:string;onChange:(v:string)=>void;placeholder?:string;required?:boolean;disabled?:boolean;
 }) {
   return (
     <div>
       <label className="block text-[11px] text-muted-foreground mb-1">
-        {label}{required && <span className="text-steami-red ml-1">*</span>}
+        {label}{required&&<span className="text-steami-red ml-1">*</span>}
       </label>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || label}
-        required={required}
-        disabled={disabled}
-        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px] disabled:opacity-40"
-      />
+      <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder||label}
+        required={required} disabled={disabled}
+        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px] disabled:opacity-40" />
     </div>
   );
 }
-
-function TextArea({
-  label, value, onChange, rows = 4, hint = '',
-}: {
-  label: string; value: string; onChange: (v: string) => void; rows?: number; hint?: string;
+function TextArea({label,value,onChange,rows=4,hint=''}:{
+  label:string;value:string;onChange:(v:string)=>void;rows?:number;hint?:string;
 }) {
   return (
     <div>
       <label className="block text-[11px] text-muted-foreground mb-1">{label}</label>
-      {hint && <p className="text-[10px] text-muted-foreground/60 mb-1">{hint}</p>}
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={label}
-        rows={rows}
-        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"
-      />
+      {hint&&<p className="text-[10px] text-muted-foreground/60 mb-1">{hint}</p>}
+      <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={label} rows={rows}
+        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]" />
     </div>
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function ModerationPage() {
-  const user = useAuthStore((s) => s.user);
-  const canModerate = user?.role === 'admin' || user?.role === 'mod';
+  const user        = useAuthStore(s=>s.user);
+  const isAdmin     = user?.role==='admin';
+  const canModerate = isAdmin||user?.role==='mod';
 
-  const [tab, setTab] = useState<'explainer' | 'research' | 'blog' | 'newsletter'>('explainer');
+  const [tab,setTab] = useState<'explainer'|'research'|'blog'|'simulation'|'builder'|'newsletter'>('explainer');
 
   const [explainerForm, setExplainerForm] = useState(emptyExplainer);
   const [researchForm,  setResearchForm]  = useState(emptyResearch);
   const [blogForm,      setBlogForm]      = useState(emptyBlog);
-  const [editingId,     setEditingId]     = useState('');
-  const [imageFile,     setImageFile]     = useState<File | null>(null);
-  const [items,         setItems]         = useState<any[]>([]);
-  const [status,        setStatus]        = useState('');
-  const [error,         setError]         = useState('');
+  const [simForm,       setSimForm]       = useState(emptySimulation);
 
-  // Setter factories
-  const ef = (k: keyof typeof emptyExplainer) => (v: string) => setExplainerForm((f) => ({ ...f, [k]: v }));
-  const rf = (k: keyof typeof emptyResearch)  => (v: string) => setResearchForm((f)  => ({ ...f, [k]: v }));
-  const bf = (k: keyof typeof emptyBlog)      => (v: string) => setBlogForm((f)      => ({ ...f, [k]: v }));
+  const [editingId,   setEditingId]   = useState('');
+  const [imageFile,   setImageFile]   = useState<File|null>(null);
+  const [glbFile,     setGlbFile]     = useState<File|null>(null);
+  const [snapshotB64, setSnapshotB64] = useState('');
+  const [items,       setItems]       = useState<any[]>([]);
+  const [status,      setStatus]      = useState('');
+  const [error,       setError]       = useState('');
+
+  const ef = (k:keyof typeof emptyExplainer) => (v:string) => setExplainerForm(f=>({...f,[k]:v}));
+  const rf = (k:keyof typeof emptyResearch)  => (v:string) => setResearchForm(f=>({...f,[k]:v}));
+  const bf = (k:keyof typeof emptyBlog)      => (v:string) => setBlogForm(f=>({...f,[k]:v}));
+  const sf = (k:keyof typeof emptySimulation)=> (v:string) => setSimForm(f=>({...f,[k]:v}));
 
   const resetAll = () => {
-    setExplainerForm(emptyExplainer);
-    setResearchForm(emptyResearch);
-    setBlogForm(emptyBlog);
-    setEditingId('');
-    setImageFile(null);
+    setExplainerForm(emptyExplainer); setResearchForm(emptyResearch);
+    setBlogForm(emptyBlog);           setSimForm(emptySimulation);
+    setEditingId(''); setImageFile(null); setGlbFile(null); setSnapshotB64('');
   };
-
-  // ── Load list ────────────────────────────────────────────────────────────────
 
   const loadItems = async () => {
     setError('');
     try {
-      const data =
-        tab === 'explainer' ? await api.content.cmsExplainers()
-        : tab === 'research' ? await api.content.cmsResearch()
-        :                      await api.content.cmsBlog();
-      setItems(Array.isArray(data) ? data : data?.items ?? data?.articles ?? data?.explainers ?? data?.posts ?? []);
-    } catch (err: any) {
-      setError(err.message || 'Unable to load items');
-    }
+      let data:any;
+      if      (tab==='explainer')  data = await api.content.cmsExplainers();
+      else if (tab==='research')   data = await api.content.cmsResearch();
+      else if (tab==='simulation') data = await api.simulations.cmsList();
+      else if (tab==='blog')       data = await api.content.cmsBlog();
+      else return;
+      setItems(Array.isArray(data)?data:data?.simulations??data?.items??data?.articles??data?.explainers??data?.posts??[]);
+    } catch(err:any){setError(err.message||'Unable to load items');}
   };
 
-  useEffect(() => {
-    if (canModerate) loadItems();
-  }, [canModerate, tab]);
+  useEffect(()=>{if(canModerate&&tab!=='newsletter'&&tab!=='builder')loadItems();},[canModerate,tab]);
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus('');
-    setError('');
+  const submit = async (e:React.FormEvent) => {
+    e.preventDefault(); setStatus(''); setError('');
     try {
-
-      // ── EXPLAINER ──────────────────────────────────────────────────────────
-      if (tab === 'explainer') {
+      if (tab==='explainer') {
         if (editingId) {
-          await api.content.updateExplainer(editingId, {
-            title:           explainerForm.title           || undefined,
-            subtitle:        explainerForm.subtitle        || undefined,
-            field:           explainerForm.field           || undefined,
-            badgeColor:      explainerForm.badgeColor      || undefined,
-            readTime:        explainerForm.readTime        || undefined,
-            author:          explainerForm.author          || undefined,
-            content:         lines(explainerForm.content),
-            keyInsights:     lines(explainerForm.keyInsights),
-            context:         explainerForm.context         || undefined,
-            technicalDetail: explainerForm.technicalDetail || undefined,
-            impact:          explainerForm.impact          || undefined,
-            references:      parseReferences(explainerForm.references),
+          await api.content.updateExplainer(editingId,{
+            title:explainerForm.title||undefined,subtitle:explainerForm.subtitle||undefined,
+            field:explainerForm.field||undefined,badgeColor:explainerForm.badgeColor||undefined,
+            readTime:explainerForm.readTime||undefined,author:explainerForm.author||undefined,
+            content:lines(explainerForm.content),keyInsights:lines(explainerForm.keyInsights),
+            context:explainerForm.context||undefined,technicalDetail:explainerForm.technicalDetail||undefined,
+            impact:explainerForm.impact||undefined,references:parseRefs(explainerForm.references),
           });
-          if (imageFile) await api.content.uploadExplainerImage(editingId, imageFile);
+          if(imageFile)await api.content.uploadExplainerImage(editingId,imageFile);
         } else {
-          if (!imageFile) { setError('An image file is required to create an explainer.'); return; }
-          // POST /api/explainers/create-with-image (multipart)
-          await api.content.createExplainerWithImage(
-            {
-              id:              explainerForm.id,
-              title:           explainerForm.title,
-              subtitle:        explainerForm.subtitle,
-              field:           explainerForm.field,
-              badgeColor:      explainerForm.badgeColor,
-              readTime:        explainerForm.readTime,
-              author:          explainerForm.author,
-              context:         explainerForm.context,
-              technicalDetail: explainerForm.technicalDetail,
-              impact:          explainerForm.impact,
-              content:         JSON.stringify(lines(explainerForm.content)),
-              keyInsights:     JSON.stringify(lines(explainerForm.keyInsights)),
-              references:      JSON.stringify(parseReferences(explainerForm.references)),
-            },
-            imageFile,
-          );
+          if(!imageFile){setError('Image required.');return;}
+          await api.content.createExplainerWithImage({
+            id:explainerForm.id,title:explainerForm.title,subtitle:explainerForm.subtitle,
+            field:explainerForm.field,badgeColor:explainerForm.badgeColor,readTime:explainerForm.readTime,
+            author:explainerForm.author,context:explainerForm.context,technicalDetail:explainerForm.technicalDetail,
+            impact:explainerForm.impact,content:JSON.stringify(lines(explainerForm.content)),
+            keyInsights:JSON.stringify(lines(explainerForm.keyInsights)),
+            references:JSON.stringify(parseRefs(explainerForm.references)),
+          },imageFile);
         }
-      }
-
-      // ── RESEARCH ───────────────────────────────────────────────────────────
-      else if (tab === 'research') {
+      } else if (tab==='research') {
         if (editingId) {
-          await api.content.updateResearch(editingId, {
-            title:         researchForm.title        || undefined,
-            field:         researchForm.field        || undefined,
-            abstract:      researchForm.abstract     || undefined,
-            author:        researchForm.author       || undefined,
-            date:          researchForm.date         || undefined,
-            readTime:      researchForm.readTime     || undefined,
-            content:       lines(researchForm.content),
-            quotes:        lines(researchForm.quotes),
-            keyFindings:   lines(researchForm.keyFindings),
-            relatedTopics: lines(researchForm.relatedTopics),
+          await api.content.updateResearch(editingId,{
+            title:researchForm.title||undefined,field:researchForm.field||undefined,
+            abstract:researchForm.abstract||undefined,author:researchForm.author||undefined,
+            date:researchForm.date||undefined,readTime:researchForm.readTime||undefined,
+            content:lines(researchForm.content),quotes:lines(researchForm.quotes),
+            keyFindings:lines(researchForm.keyFindings),relatedTopics:lines(researchForm.relatedTopics),
           });
-          if (imageFile) await api.content.uploadResearchImage(editingId, imageFile);
+          if(imageFile)await api.content.uploadResearchImage(editingId,imageFile);
         } else {
-          if (!imageFile) { setError('An image file is required to create a research article.'); return; }
-          // POST /api/research/articles/create-with-image (multipart)
-          await api.content.createResearchWithImage(
-            {
-              id:            researchForm.id,
-              title:         researchForm.title,
-              field:         researchForm.field,
-              abstract:      researchForm.abstract,
-              author:        researchForm.author,
-              date:          researchForm.date,
-              readTime:      researchForm.readTime,
-              content:       JSON.stringify(lines(researchForm.content)),
-              quotes:        JSON.stringify(lines(researchForm.quotes)),
-              keyFindings:   JSON.stringify(lines(researchForm.keyFindings)),
-              relatedTopics: JSON.stringify(lines(researchForm.relatedTopics)),
-            },
-            imageFile,
-          );
+          if(!imageFile){setError('Image required.');return;}
+          await api.content.createResearchWithImage({
+            id:researchForm.id,title:researchForm.title,field:researchForm.field,
+            abstract:researchForm.abstract,author:researchForm.author,date:researchForm.date,
+            readTime:researchForm.readTime,content:JSON.stringify(lines(researchForm.content)),
+            quotes:JSON.stringify(lines(researchForm.quotes)),
+            keyFindings:JSON.stringify(lines(researchForm.keyFindings)),
+            relatedTopics:JSON.stringify(lines(researchForm.relatedTopics)),
+          },imageFile);
         }
-      }
-
-      // ── INTELLIGENCE ───────────────────────────────────────────────────────────────
-      else if (tab === 'blog') {
-        const blogBody = {
-          id:           blogForm.id,
-          title:        blogForm.title,
-          subtitle:     blogForm.subtitle,
-          description:  blogForm.description,
-          field:        blogForm.field,
-          badgeColor:   blogForm.badgeColor   || 'cyan',
-          coverImage:   blogForm.coverImage,
-          tags:         csv(blogForm.tags),
-          keyInsights:  lines(blogForm.keyInsights),
-          type:         blogForm.type         || 'article',
-          simulationUrl: blogForm.simulationUrl,
-          content:      blogForm.content,
-          publishDate:  blogForm.publishDate  || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          readingTime:  blogForm.readingTime  || `${Math.max(1, Math.ceil(blogForm.content.length / 1000))} MIN READ`,
-          author: {
-            name:   blogForm.authorName   || user?.fullName || '',
-            role:   blogForm.authorRole   || user?.role     || '',
-            avatar: blogForm.authorAvatar || '',
-            bio:    blogForm.authorBio    || '',
-          },
+      } else if (tab==='blog') {
+        const b={
+          id:blogForm.id,title:blogForm.title,subtitle:blogForm.subtitle,description:blogForm.description,
+          field:blogForm.field,badgeColor:blogForm.badgeColor||'cyan',coverImage:blogForm.coverImage,
+          tags:csv(blogForm.tags),keyInsights:lines(blogForm.keyInsights),type:blogForm.type||'article',
+          simulationUrl:blogForm.simulationUrl,content:blogForm.content,
+          publishDate:blogForm.publishDate||new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+          readingTime:blogForm.readingTime||`${Math.max(1,Math.ceil(blogForm.content.length/1000))} MIN READ`,
+          author:{name:blogForm.authorName||user?.fullName||'',role:blogForm.authorRole||user?.role||'',avatar:blogForm.authorAvatar||'',bio:blogForm.authorBio||''},
         };
-        if (editingId) {
-          await api.content.updateBlogPost(editingId, blogBody);
-        } else {
-          // Step 1: POST /api/blog (JSON)
-          await api.content.createBlogPost(blogBody);
-        }
-        // Step 2: upload cover image if selected — POST /api/blog/{id}/cover-image
-        if (imageFile) {
-          await api.content.uploadBlogCover(editingId || blogForm.id, imageFile);
-        }
+        if(editingId)await api.content.updateBlogPost(editingId,b);
+        else await api.content.createBlogPost(b);
+        if(imageFile)await api.content.uploadBlogCover(editingId||blogForm.id,imageFile);
+      } else if (tab==='simulation') {
+        const s={
+          id:simForm.id,title:simForm.title,field:simForm.field,fieldColor:simForm.fieldColor||'steami-badge-cyan',
+          description:simForm.description,caption:simForm.caption,readTime:simForm.readTime||'10 min interactive',
+          simulation_type:simForm.simulation_type||'custom',component_id:simForm.component_id,
+          insights:lines(simForm.insights),tags:csv(simForm.tags),
+        };
+        if(editingId)await api.simulations.update(editingId,s);
+        else{if(!simForm.id||!simForm.title){setError('ID and Title required.');return;}await api.simulations.create(s);}
+        const tid=editingId||simForm.id;
+        if(snapshotB64)await api.simulations.uploadSnapshot(tid,snapshotB64);
+        if(glbFile)await api.simulations.uploadGlb(tid,glbFile);
       }
-
-      setStatus('Saved successfully.');
-      resetAll();
-      loadItems();
-    } catch (err: any) {
-      setError(err.message || 'Save failed');
-    }
+      setStatus('Saved successfully.'); resetAll(); loadItems();
+    } catch(err:any){setError(err.message||'Save failed');}
   };
 
-  // ── Edit / delete ────────────────────────────────────────────────────────────
-
-  const editItem = async (item: any) => {
-    const id = item.id ?? item.uid ?? item.post_id ?? item.article_id;
-    if (!id) return;
-    setStatus('Loading…'); setError('');
-    let full = item;
-    try {
-      if (tab === 'explainer') full = await api.content.explainer(id);
-      if (tab === 'research')  full = await api.content.researchArticle(id);
-      if (tab === 'blog')      full = await api.content.blogPost(id);
-    } catch (err: any) {
-      setError(err.message || 'Could not load item'); setStatus(''); return;
-    }
-    setEditingId(id);
-    setImageFile(null);
-    if (tab === 'explainer') {
-      setExplainerForm({
-        id:              full.id            ?? id,
-        title:           full.title         ?? '',
-        subtitle:        full.subtitle      ?? '',
-        field:           full.field         ?? '',
-        badgeColor:      full.badgeColor    ?? '',
-        readTime:        full.readTime      ?? '',
-        author:          full.author        ?? '',
-        content:         Array.isArray(full.content)     ? full.content.join('\n')     : full.content     ?? '',
-        keyInsights:     Array.isArray(full.keyInsights) ? full.keyInsights.join('\n') : '',
-        context:         full.context         ?? '',
-        technicalDetail: full.technicalDetail ?? '',
-        impact:          full.impact          ?? '',
-        references:      Array.isArray(full.references)
-          ? full.references.map((r: any) => JSON.stringify(r)).join('\n')
-          : '',
-      });
-    } else if (tab === 'research') {
-      setResearchForm({
-        id:            full.id      ?? id,
-        title:         full.title   ?? '',
-        field:         full.field   ?? '',
-        abstract:      full.abstract ?? '',
-        author:        full.author  ?? '',
-        date:          full.date    ?? '',
-        readTime:      full.readTime ?? '',
-        content:       Array.isArray(full.content)       ? full.content.join('\n')       : full.content       ?? '',
-        quotes:        Array.isArray(full.quotes)        ? full.quotes.join('\n')        : '',
-        keyFindings:   Array.isArray(full.keyFindings)   ? full.keyFindings.join('\n')   : '',
-        relatedTopics: Array.isArray(full.relatedTopics) ? full.relatedTopics.join('\n') : '',
-      });
-    } else if (tab === 'blog') {
-      const a = full.author ?? {};
-      setBlogForm({
-        id:           full.id            ?? id,
-        title:        full.title         ?? '',
-        subtitle:     full.subtitle      ?? '',
-        description:  full.description   ?? '',
-        field:        full.field         ?? '',
-        badgeColor:   full.badgeColor    ?? '',
-        coverImage:   full.coverImage    ?? '',
-        tags:         Array.isArray(full.tags)        ? full.tags.join(', ')        : '',
-        keyInsights:  Array.isArray(full.keyInsights) ? full.keyInsights.join('\n') : '',
-        type:         full.type          ?? 'article',
-        simulationUrl: full.simulationUrl ?? '',
-        content:      full.content       ?? '',
-        publishDate:  full.publishDate   ?? '',
-        readingTime:  full.readingTime   ?? '',
-        authorName:   a.name   ?? '',
-        authorRole:   a.role   ?? '',
-        authorAvatar: a.avatar ?? '',
-        authorBio:    a.bio    ?? '',
-      });
-    }
+  const editItem = async (item:any) => {
+    const id=item.id??item.uid??item.post_id??item.article_id; if(!id)return;
+    setStatus('Loading…');setError('');
+    let full=item;
+    try{
+      if(tab==='explainer') full=await api.content.explainer(id);
+      if(tab==='research')  full=await api.content.researchArticle(id);
+      if(tab==='blog')      full=await api.content.blogPost(id);
+      if(tab==='simulation')full=await api.simulations.cmsGet(id);
+    }catch(err:any){setError(err.message||'Could not load');setStatus('');return;}
+    setEditingId(id);setImageFile(null);setGlbFile(null);setSnapshotB64('');
+    if(tab==='explainer')setExplainerForm({
+      id:full.id??id,title:full.title??'',subtitle:full.subtitle??'',field:full.field??'',
+      badgeColor:full.badgeColor??'',readTime:full.readTime??'',author:full.author??'',
+      content:Array.isArray(full.content)?full.content.join('\n'):full.content??'',
+      keyInsights:Array.isArray(full.keyInsights)?full.keyInsights.join('\n'):'',
+      context:full.context??'',technicalDetail:full.technicalDetail??'',impact:full.impact??'',
+      references:Array.isArray(full.references)?full.references.map((r:any)=>JSON.stringify(r)).join('\n'):'',
+    });
+    else if(tab==='research')setResearchForm({
+      id:full.id??id,title:full.title??'',field:full.field??'',abstract:full.abstract??'',
+      author:full.author??'',date:full.date??'',readTime:full.readTime??'',
+      content:Array.isArray(full.content)?full.content.join('\n'):full.content??'',
+      quotes:Array.isArray(full.quotes)?full.quotes.join('\n'):'',
+      keyFindings:Array.isArray(full.keyFindings)?full.keyFindings.join('\n'):'',
+      relatedTopics:Array.isArray(full.relatedTopics)?full.relatedTopics.join('\n'):'',
+    });
+    else if(tab==='blog'){const a=full.author??{};setBlogForm({
+      id:full.id??id,title:full.title??'',subtitle:full.subtitle??'',description:full.description??'',
+      field:full.field??'',badgeColor:full.badgeColor??'',coverImage:full.coverImage??'',
+      tags:Array.isArray(full.tags)?full.tags.join(', '):'',
+      keyInsights:Array.isArray(full.keyInsights)?full.keyInsights.join('\n'):'',
+      type:full.type??'article',simulationUrl:full.simulationUrl??'',content:full.content??'',
+      publishDate:full.publishDate??'',readingTime:full.readingTime??'',
+      authorName:a.name??'',authorRole:a.role??'',authorAvatar:a.avatar??'',authorBio:a.bio??'',
+    });}
+    else if(tab==='simulation')setSimForm({
+      id:full.id??id,title:full.title??'',field:full.field??'',fieldColor:full.fieldColor??'steami-badge-cyan',
+      description:full.description??'',caption:full.caption??'',readTime:full.readTime??'10 min interactive',
+      simulation_type:full.simulation_type??'custom',component_id:full.component_id??'',
+      insights:Array.isArray(full.insights)?full.insights.join('\n'):'',
+      tags:Array.isArray(full.tags)?full.tags.join(', '):'',
+    });
     setStatus('Loaded for editing.');
   };
 
-  const deleteItem = async (item: any) => {
-    const id = item.id ?? item.uid ?? item.post_id ?? item.article_id;
-    if (!id) return;
-    if (tab === 'explainer') await api.content.deleteExplainer(id);
-    if (tab === 'research')  await api.content.deleteResearch(id);
-    if (tab === 'blog')      await api.content.deleteBlogPost(id);
+  const deleteItem = async (item:any) => {
+    const id=item.id??item.uid??item.post_id??item.article_id; if(!id)return;
+    if(tab==='explainer') await api.content.deleteExplainer(id);
+    if(tab==='research')  await api.content.deleteResearch(id);
+    if(tab==='blog')      await api.content.deleteBlogPost(id);
+    if(tab==='simulation')await api.simulations.delete(id);
     setStatus('Deleted.'); loadItems();
   };
 
-  // ── Access guard ─────────────────────────────────────────────────────────────
+  if(!canModerate)return(
+    <SteamiLayout>
+      <div className="glass-card p-8 text-center">
+        <ShieldCheck className="w-8 h-8 text-steami-gold mx-auto mb-3" />
+        <h1 className="steami-heading text-2xl mb-2">Moderator Access Required</h1>
+        <p className="text-muted-foreground text-[14px]">Admin and mod users can create and manage content here.</p>
+      </div>
+    </SteamiLayout>
+  );
 
-  if (!canModerate) {
-    return (
-      <SteamiLayout>
-        <div className="glass-card p-8 text-center">
-          <ShieldCheck className="w-8 h-8 text-steami-gold mx-auto mb-3" />
-          <h1 className="steami-heading text-2xl mb-2">Moderator Access Required</h1>
-          <p className="text-muted-foreground text-[14px]">Admin and mod users can create and manage content here.</p>
-        </div>
-      </SteamiLayout>
-    );
-  }
-
-  const imageRequired = !editingId && (tab === 'explainer' || tab === 'research');
-
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const imageRequired=!editingId&&(tab==='explainer'||tab==='research');
 
   return (
     <SteamiLayout>
       <div className="mb-8">
         <h1 className="steami-heading text-3xl md:text-4xl mb-3">Content Operations</h1>
         <p className="text-[15px] text-muted-foreground max-w-2xl">
-          Create and manage explainers, research articles, blog posts, manual articles, and feed insights.
+          Create and manage explainers, research articles, blog posts, 3D simulations, and more.
         </p>
       </div>
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-2 mb-6">
-        {(['explainer', 'research', 'blog', 'newsletter'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => { setTab(t); resetAll(); setStatus(''); setError(''); }}
-            className={`steami-btn text-[11px] ${tab === t ? 'steami-btn-gold' : ''}`}
+        {(['explainer','research','blog','simulation','builder','newsletter'] as const).map(t=>(
+          <button key={t}
+            onClick={()=>{setTab(t);resetAll();setStatus('');setError('');}}
+            className={`steami-btn text-[11px] ${tab===t?'steami-btn-gold':''}`}
           >
-            {t === 'newsletter' ? '📰 Newsletter' : t === 'blog' ? 'Intelligence' : t}
+            {t==='newsletter'?'📰 Newsletter':t==='blog'?'Intelligence':t==='simulation'?'🧊 Simulation':t==='builder'?'🔬 3D Builder':t}
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-        {tab === 'newsletter' ? (
-          <div className="lg:col-span-2">
-            <NewsletterTab />
-          </div>
-        ) : (
-          <>
-        {/* ── CREATE / EDIT FORM ────────────────────────────────────────────── */}
-        {tab !== 'newsletter' && (
+        {tab==='newsletter'&&<div className="lg:col-span-2"><NewsletterTab /></div>}
+
+        {tab==='builder'&&<SimulationBuilderTab isAdmin={isAdmin} canModerate={canModerate} />}
+
+        {tab!=='newsletter'&&tab!=='builder'&&(<>
+          {/* Form */}
           <section className="glass-card p-5">
-            <h2 className="steami-section-label mb-4">{editingId ? `Update ${tab}` : `Create ${tab}`}</h2>
+            <h2 className="steami-section-label mb-4">{editingId?`Update ${tab}`:`Create ${tab}`}</h2>
             <form onSubmit={submit} className="space-y-3">
 
-              {/* ── Explainer fields ── */}
-              {tab === 'explainer' && (
-                <>
-                  <Field label="ID (unique slug)" value={explainerForm.id} onChange={ef('id')} required disabled={!!editingId} placeholder="e.g. quantum-dog" />
-                  <Field label="Title" value={explainerForm.title} onChange={ef('title')} required />
-                  <Field label="Subtitle" value={explainerForm.subtitle} onChange={ef('subtitle')} />
-                  <Field label="Field (e.g. QUANTUM PHYSICS)" value={explainerForm.field} onChange={ef('field')} />
-                  <Field label="Badge Color (cyan / green / violet / gold)" value={explainerForm.badgeColor} onChange={ef('badgeColor')} />
-                  <Field label="Read Time (e.g. 8 MIN READ)" value={explainerForm.readTime} onChange={ef('readTime')} />
-                  <Field label="Author" value={explainerForm.author} onChange={ef('author')} />
-                  <TextArea label="Content" value={explainerForm.content} onChange={ef('content')} rows={6} hint="One paragraph per line — each line becomes a separate array item sent to the API." />
-                  <TextArea label="Key Insights" value={explainerForm.keyInsights} onChange={ef('keyInsights')} rows={3} hint="One insight per line." />
-                  <TextArea label="Context & Background" value={explainerForm.context} onChange={ef('context')} rows={3} />
-                  <TextArea label="Technical Detail" value={explainerForm.technicalDetail} onChange={ef('technicalDetail')} rows={3} />
-                  <TextArea label="Impact & Implications" value={explainerForm.impact} onChange={ef('impact')} rows={3} />
-                  <TextArea
-                    label="References / Credentials"
-                    value={explainerForm.references}
-                    onChange={ef('references')}
-                    rows={4}
-                    hint='One reference per line as JSON: {"title":"Paper Title","url":"https://...","author":"Author Name","type":"paper"} — or just a plain title string.'
-                  />
-                </>
-              )}
+              {tab==='explainer'&&<>
+                <Field label="ID" value={explainerForm.id} onChange={ef('id')} required disabled={!!editingId} placeholder="e.g. quantum-dog"/>
+                <Field label="Title" value={explainerForm.title} onChange={ef('title')} required/>
+                <Field label="Subtitle" value={explainerForm.subtitle} onChange={ef('subtitle')}/>
+                <Field label="Field (e.g. QUANTUM PHYSICS)" value={explainerForm.field} onChange={ef('field')}/>
+                <Field label="Badge Color" value={explainerForm.badgeColor} onChange={ef('badgeColor')} placeholder="cyan/green/violet/gold"/>
+                <Field label="Read Time" value={explainerForm.readTime} onChange={ef('readTime')} placeholder="8 MIN READ"/>
+                <Field label="Author" value={explainerForm.author} onChange={ef('author')}/>
+                <TextArea label="Content" value={explainerForm.content} onChange={ef('content')} rows={6} hint="One paragraph per line."/>
+                <TextArea label="Key Insights" value={explainerForm.keyInsights} onChange={ef('keyInsights')} rows={3} hint="One per line."/>
+                <TextArea label="Context" value={explainerForm.context} onChange={ef('context')} rows={3}/>
+                <TextArea label="Technical Detail" value={explainerForm.technicalDetail} onChange={ef('technicalDetail')} rows={3}/>
+                <TextArea label="Impact" value={explainerForm.impact} onChange={ef('impact')} rows={3}/>
+                <TextArea label="References" value={explainerForm.references} onChange={ef('references')} rows={4}
+                  hint='One per line as JSON: {"title":"...","url":"...","author":"...","type":"paper"}'/>
+              </>}
 
-              {/* ── Research fields ── */}
-              {tab === 'research' && (
-                <>
-                  <Field label="ID (unique slug)" value={researchForm.id} onChange={rf('id')} required disabled={!!editingId} placeholder="e.g. topological-qubits-99" />
-                  <Field label="Title" value={researchForm.title} onChange={rf('title')} required />
-                  <Field label="Field (e.g. PHYSICS)" value={researchForm.field} onChange={rf('field')} required />
-                  <Field label="Abstract" value={researchForm.abstract} onChange={rf('abstract')} />
-                  <Field label="Author" value={researchForm.author} onChange={rf('author')} />
-                  <Field label="Date (YYYY-MM-DD)" value={researchForm.date} onChange={rf('date')} placeholder="2026-04-30" />
-                  <Field label="Read Time (e.g. 10 min)" value={researchForm.readTime} onChange={rf('readTime')} />
-                  <TextArea label="Content" value={researchForm.content} onChange={rf('content')} rows={6} hint="One paragraph per line." />
-                  <TextArea label="Quotes" value={researchForm.quotes} onChange={rf('quotes')} rows={3} hint="One quote per line." />
-                  <TextArea label="Key Findings" value={researchForm.keyFindings} onChange={rf('keyFindings')} rows={3} hint="One finding per line." />
-                  <TextArea label="Related Topics" value={researchForm.relatedTopics} onChange={rf('relatedTopics')} rows={2} hint="One topic per line." />
-                </>
-              )}
+              {tab==='research'&&<>
+                <Field label="ID" value={researchForm.id} onChange={rf('id')} required disabled={!!editingId} placeholder="e.g. topological-qubits"/>
+                <Field label="Title" value={researchForm.title} onChange={rf('title')} required/>
+                <Field label="Field" value={researchForm.field} onChange={rf('field')} required/>
+                <Field label="Abstract" value={researchForm.abstract} onChange={rf('abstract')}/>
+                <Field label="Author" value={researchForm.author} onChange={rf('author')}/>
+                <Field label="Date (YYYY-MM-DD)" value={researchForm.date} onChange={rf('date')} placeholder="2026-04-30"/>
+                <Field label="Read Time" value={researchForm.readTime} onChange={rf('readTime')}/>
+                <TextArea label="Content" value={researchForm.content} onChange={rf('content')} rows={6} hint="One paragraph per line."/>
+                <TextArea label="Quotes" value={researchForm.quotes} onChange={rf('quotes')} rows={3} hint="One per line."/>
+                <TextArea label="Key Findings" value={researchForm.keyFindings} onChange={rf('keyFindings')} rows={3} hint="One per line."/>
+                <TextArea label="Related Topics" value={researchForm.relatedTopics} onChange={rf('relatedTopics')} rows={2} hint="One per line."/>
+              </>}
 
-              {/* ── Intelligence fields ── */}
-              {tab === 'blog' && (
-                <>
-                  <Field label="ID (unique slug)" value={blogForm.id} onChange={bf('id')} required disabled={!!editingId} placeholder="e.g. future-of-quantum" />
-                  <Field label="Title" value={blogForm.title} onChange={bf('title')} required />
-                  <Field label="Subtitle" value={blogForm.subtitle} onChange={bf('subtitle')} />
-                  <Field label="Description (meta / preview text)" value={blogForm.description} onChange={bf('description')} />
-                  <Field label="Field / Category" value={blogForm.field} onChange={bf('field')} />
-                  <Field label="Badge Color (cyan / green / violet / gold)" value={blogForm.badgeColor} onChange={bf('badgeColor')} />
-                  <Field label="Type (article / simulation)" value={blogForm.type} onChange={bf('type')} />
-                  <Field label="Cover Image URL (or upload a file below)" value={blogForm.coverImage} onChange={bf('coverImage')} />
-                  <Field label="Tags (comma-separated)" value={blogForm.tags} onChange={bf('tags')} placeholder="AI, Quantum, Physics" />
-                  <Field label="Publish Date (e.g. Apr 30, 2026)" value={blogForm.publishDate} onChange={bf('publishDate')} />
-                  <Field label="Reading Time (e.g. 5 MIN READ)" value={blogForm.readingTime} onChange={bf('readingTime')} />
-                  <Field label="Simulation URL (optional)" value={blogForm.simulationUrl} onChange={bf('simulationUrl')} />
-                  <TextArea label="Key Insights" value={blogForm.keyInsights} onChange={bf('keyInsights')} rows={3} hint="One insight per line." />
-                  <TextArea label="Content (markdown / rich text)" value={blogForm.content} onChange={bf('content')} rows={8} />
-                  {/* Author sub-section */}
-                  <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Author</p>
-                    <Field label="Name" value={blogForm.authorName} onChange={bf('authorName')} placeholder={user?.fullName || 'Dr. Jane Smith'} />
-                    <Field label="Role / Title" value={blogForm.authorRole} onChange={bf('authorRole')} placeholder="Quantum Physicist" />
-                    <Field label="Avatar URL" value={blogForm.authorAvatar} onChange={bf('authorAvatar')} />
-                    <Field label="Bio" value={blogForm.authorBio} onChange={bf('authorBio')} />
-                  </div>
-                </>
-              )}
+              {tab==='blog'&&<>
+                <Field label="ID" value={blogForm.id} onChange={bf('id')} required disabled={!!editingId} placeholder="e.g. future-of-quantum"/>
+                <Field label="Title" value={blogForm.title} onChange={bf('title')} required/>
+                <Field label="Subtitle" value={blogForm.subtitle} onChange={bf('subtitle')}/>
+                <Field label="Description" value={blogForm.description} onChange={bf('description')}/>
+                <Field label="Field / Category" value={blogForm.field} onChange={bf('field')}/>
+                <Field label="Badge Color" value={blogForm.badgeColor} onChange={bf('badgeColor')}/>
+                <Field label="Type (article/simulation)" value={blogForm.type} onChange={bf('type')}/>
+                <Field label="Cover Image URL" value={blogForm.coverImage} onChange={bf('coverImage')}/>
+                <Field label="Tags (comma-separated)" value={blogForm.tags} onChange={bf('tags')}/>
+                <Field label="Publish Date" value={blogForm.publishDate} onChange={bf('publishDate')}/>
+                <Field label="Reading Time" value={blogForm.readingTime} onChange={bf('readingTime')}/>
+                <Field label="Simulation URL" value={blogForm.simulationUrl} onChange={bf('simulationUrl')}/>
+                <TextArea label="Key Insights" value={blogForm.keyInsights} onChange={bf('keyInsights')} rows={3} hint="One per line."/>
+                <TextArea label="Content" value={blogForm.content} onChange={bf('content')} rows={8}/>
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Author</p>
+                  <Field label="Name" value={blogForm.authorName} onChange={bf('authorName')} placeholder={user?.fullName||'Dr. Jane Smith'}/>
+                  <Field label="Role" value={blogForm.authorRole} onChange={bf('authorRole')}/>
+                  <Field label="Avatar URL" value={blogForm.authorAvatar} onChange={bf('authorAvatar')}/>
+                  <Field label="Bio" value={blogForm.authorBio} onChange={bf('authorBio')}/>
+                </div>
+              </>}
 
-              {/* ── Image upload ── */}
-              {(tab === 'explainer' || tab === 'research' || tab === 'blog') && (
+              {tab==='simulation'&&<>
+                <Field label="ID" value={simForm.id} onChange={sf('id')} required disabled={!!editingId} placeholder="e.g. wave-function"/>
+                <Field label="Title" value={simForm.title} onChange={sf('title')} required/>
+                <Field label="Field" value={simForm.field} onChange={sf('field')}/>
+                <Field label="Badge Color class" value={simForm.fieldColor} onChange={sf('fieldColor')} placeholder="steami-badge-cyan"/>
+                <TextArea label="Description" value={simForm.description} onChange={sf('description')} rows={3}/>
+                <Field label="Caption" value={simForm.caption} onChange={sf('caption')}/>
+                <Field label="Read Time" value={simForm.readTime} onChange={sf('readTime')}/>
+                <Field label="Simulation Type" value={simForm.simulation_type} onChange={sf('simulation_type')} placeholder="bloch_sphere|three_body|custom"/>
+                <Field label="Component ID" value={simForm.component_id} onChange={sf('component_id')} placeholder="quantum|threebody|your-key"/>
+                <TextArea label="Key Insights" value={simForm.insights} onChange={sf('insights')} rows={4} hint="One per line."/>
+                <Field label="Tags (comma-separated)" value={simForm.tags} onChange={sf('tags')}/>
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-2">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Preview Snapshot</p>
+                  <input type="file" accept="image/png,image/jpeg,image/webp"
+                    onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{if(typeof r.result==='string')setSnapshotB64(r.result);};r.readAsDataURL(f);}}
+                    className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
+                  {snapshotB64&&<img src={snapshotB64} alt="Preview" className="w-full rounded-md object-cover" style={{maxHeight:120}}/>}
+                </div>
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-2">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">3-D File (.glb/.gltf)</p>
+                  <input type="file" accept=".glb,.gltf,.obj,.fbx,.stl" onChange={e=>setGlbFile(e.target.files?.[0]??null)}
+                    className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
+                  {glbFile&&<p className="text-[11px] text-steami-green">Selected: {glbFile.name}</p>}
+                </div>
+              </>}
+
+              {(tab==='explainer'||tab==='research'||tab==='blog')&&(
                 <div>
                   <label className="block text-[11px] text-muted-foreground mb-1">
-                    {tab === 'blog'
-                      ? 'Cover Image File (optional — overrides URL above)'
-                      : editingId
-                      ? 'Replace Image (optional)'
-                      : <span>Image File <span className="text-steami-red">*</span></span>
-                    }
+                    {tab==='blog'?'Cover Image (optional)':editingId?'Replace Image (optional)':<span>Image File <span className="text-steami-red">*</span></span>}
                   </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    required={imageRequired}
-                    onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-                    className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"
-                  />
-                  {imageFile && (
-                    <p className="text-[11px] text-steami-green mt-1">Selected: {imageFile.name}</p>
-                  )}
+                  <input type="file" accept="image/*" required={imageRequired} onChange={e=>setImageFile(e.target.files?.[0]??null)}
+                    className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
+                  {imageFile&&<p className="text-[11px] text-steami-green mt-1">Selected: {imageFile.name}</p>}
                 </div>
               )}
 
-              {status && <p className="text-[12px] text-steami-green">{status}</p>}
-              {error  && <p className="text-[12px] text-steami-red">{error}</p>}
+              {status&&<p className="text-[12px] text-steami-green">{status}</p>}
+              {error &&<p className="text-[12px] text-steami-red">{error}</p>}
 
               <div className="flex gap-2 pt-1">
-                <button className="steami-btn text-[11px]" type="submit">
-                  {editingId ? 'Update' : 'Create'}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    className="steami-btn text-[11px]"
-                    onClick={() => { resetAll(); setStatus(''); setError(''); }}
-                  >
-                    New
+                <button className="steami-btn text-[11px]" type="submit">{editingId?'Update':'Create'}</button>
+                {tab==='simulation'&&isAdmin&&!editingId&&(
+                  <button type="button" className="steami-btn text-[11px]"
+                    onClick={async()=>{setStatus('');setError('');try{const r=await api.simulations.seed();setStatus(`Seeded ${r?.seeded??'?'}.`);loadItems();}catch(e:any){setError(e.message);}}}>
+                    ↻ Seed Defaults
                   </button>
                 )}
+                {editingId&&<button type="button" className="steami-btn text-[11px]" onClick={()=>{resetAll();setStatus('');setError('');}}>New</button>}
               </div>
             </form>
           </section>
-        )}
 
-        {/* ── ITEM LIST ─────────────────────────────────────────────────────── */}
-        <ApiStatePanel
-          title={`Backend ${tab}s`}
-          error={error}
-          onRefresh={loadItems}
-        >
-          <div className="space-y-2">
-            {items.map((item, idx) => (
-              <div key={item.id ?? item.uid ?? idx} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-serif text-[16px] font-bold">{item.title ?? item.id ?? `Record ${idx + 1}`}</div>
-                    <p className="text-[13px] text-muted-foreground line-clamp-2">
-                      {item.description ?? item.subtitle ?? item.abstract ?? item.content ?? ''}
-                    </p>
+          {/* List */}
+          <ApiStatePanel title={`Backend ${tab}s`} error={error} onRefresh={loadItems}>
+            <div className="space-y-2">
+              {items.map((item,idx)=>(
+                <div key={item.id??item.uid??idx} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="flex flex-wrap items-start gap-3">
+                    {tab==='simulation'&&item.snapshot_url&&(
+                      <img src={item.snapshot_url} alt={item.title} className="w-16 h-10 rounded object-cover flex-shrink-0"/>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-serif text-[16px] font-bold">{item.title??item.id??`Record ${idx+1}`}</div>
+                      <p className="text-[13px] text-muted-foreground line-clamp-2">
+                        {item.description??item.subtitle??item.abstract??item.content??''}
+                      </p>
+                      {tab==='simulation'&&item.component_id&&(
+                        <span className="font-mono text-[10px] text-steami-cyan">component_id: {item.component_id}</span>
+                      )}
+                    </div>
+                    <button className="steami-btn text-[11px]" onClick={()=>editItem(item)}>Edit</button>
+                    {(tab!=='simulation'||isAdmin)&&(
+                      <button className="steami-btn text-[11px]" onClick={()=>deleteItem(item)}>Delete</button>
+                    )}
                   </div>
-                  {tab !== 'newsletter' && (
-                    <button className="steami-btn text-[11px]" onClick={() => editItem(item)}>Edit</button>
-                  )}
-                  {tab !== 'newsletter' && (
-                    <button className="steami-btn text-[11px]" onClick={() => deleteItem(item)}>Delete</button>
-                  )}
                 </div>
-              </div>
-            ))}
-            {items.length === 0 && <ObjectList items={[]} />}
-          </div>
-        </ApiStatePanel>
-          </>
-        )}
-
+              ))}
+              {items.length===0&&<ObjectList items={[]}/>}
+            </div>
+          </ApiStatePanel>
+        </>)}
       </div>
     </SteamiLayout>
   );

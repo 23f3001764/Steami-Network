@@ -107,6 +107,13 @@ export const slideInRight: Variants = {
   exit: { x: '100%', opacity: 0, transition: { duration: 0.25 } },
 };
 
+/* ── Bottom sheet slide ─────────────────────────────────────── */
+export const slideInBottom: Variants = {
+  hidden: { y: '100%', opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.4, ease: ease.smooth } },
+  exit: { y: '100%', opacity: 0, transition: { duration: 0.3 } },
+};
+
 /* ── Pulse glow (for live indicators, data dots) ────────────── */
 export const pulseGlow: Variants = {
   initial: { scale: 1, opacity: 0.8 },

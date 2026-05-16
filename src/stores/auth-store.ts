@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   googleLogin: async (idToken: string) => {
     const payload = await api.auth.google(idToken);
     const user = normalizeUser(payload, payload?.email);
-    user.onboarded = !payload?.is_new_user;
+    user.onboarded = !(payload as any)?.is_new_user;
     saveUser(user);
     set({ user, isAuthenticated: true });
     return true;

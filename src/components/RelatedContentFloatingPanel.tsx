@@ -123,7 +123,7 @@ export function RelatedContentFloatingPanel() {
   const defaultTab: Tab = researchId ? 'research' : blogId ? 'intelligence' : 'explainers';
 
   const [tab, setTab]             = useState<Tab>(defaultTab);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [dismissed, setDismissed] = useState(false);
 
   const [explainers, setExplainers] = useState<RelatedItem[]>([]);
@@ -140,7 +140,7 @@ export function RelatedContentFloatingPanel() {
   useEffect(() => {
     if (currentId && currentId !== prevId.current) {
       setDismissed(false);
-      setCollapsed(false);
+      setCollapsed(true);
       setTab(defaultTab);
       prevId.current = currentId;
     }

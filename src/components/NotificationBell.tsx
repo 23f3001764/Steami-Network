@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, BookOpen, FlaskConical, Newspaper, X, ChevronRight } from 'lucide-react';
 import { useThemeStore } from '@/stores/theme-store';
+import { api } from '@/lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -88,26 +89,23 @@ export function NotificationBell() {
     setLoading(true);
     try {
       const since = getSince();
-      const res   = await fetch(`${API_BASE}?since=${encodeURIComponent(since)}&limit=20`);
-      if (!res.ok) return;
-
-      const data: { total: number; since: string; items: NotificationItem[] } = await res.json();
+      const data = await api.notifications.latest(since, 20);
 
       if (data.items.length > 0) {
         setItems(prev => {
           // Deduplicate by id+type
           const existing = new Set(prev.map(i => `${i.type}:${i.id}`));
-          const fresh    = data.items.filter(i => !existing.has(`${i.type}:${i.id}`));
+          const fresh    = data.items.filter((i: any) => !existing.has(`${i.type}:${i.id}`));
           return [...fresh, ...prev].slice(0, 50); // cap history at 50
         });
         setUnread(prev => prev + data.items.length);
 
         // Advance the since cursor to the newest item's timestamp
-        const newest = data.items.reduce((a, b) =>
-          a.created_at > b.created_at ? a : b
+        const newest = data.items.reduce((a: any, b: any) =>
+          (a.created_at || a.date) > (b.created_at || b.date) ? a : b
         );
         // Add 1 ms to avoid re-fetching the same item
-        const nextSince = new Date(new Date(newest.created_at).getTime() + 1).toISOString();
+        const nextSince = new Date(new Date(newest.created_at || newest.date).getTime() + 1).toISOString();
         saveSince(nextSince);
       }
     } catch {
