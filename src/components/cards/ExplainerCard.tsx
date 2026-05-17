@@ -4,7 +4,6 @@ import { CardMedia } from '@/components/CardMedia';
 import { ShareMenu } from '@/components/ShareMenu';
 import { CardSvgVisual } from '@/components/CardSvgVisual';
 import { useThemeStore } from '@/stores/theme-store';
-import { cn } from '@/lib/utils';
 
 interface ExplainerCardProps {
   exp: any;
@@ -23,10 +22,7 @@ export const ExplainerCard = ({ exp, idx, onClick, getImageUrl, explainerImages 
       key={exp.id}
       custom={idx}
       whileTap={cardTap}
-      className={cn(
-        "glass-card steami-hover-card relative cursor-pointer group flex flex-col h-full",
-        isLight ? "bg-white/40 border-zinc-200/50" : ""
-      )}
+      className="glass-card relative cursor-pointer overflow-hidden group flex flex-col h-full"
       onClick={onClick}
     >
       {/* Accent bar */}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SteamiLayout } from '@/components/SteamiLayout';
 import { QuantumBlochSphere } from '@/components/simulations/QuantumBlochSphere';
@@ -9,6 +9,11 @@ import { ShareMenu } from '@/components/ShareMenu';
 import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 import { PopupLinkPill } from '@/components/PopupLinkPill';
 import { api } from '@/lib/api';
+
+// ── React Three Fiber + Drei ──────────────────────────────────────────────────
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, Sphere, Box, Torus, Line, Trail, Stars, Text, Grid } from '@react-three/drei';
+import * as THREE from 'three';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,28 +40,465 @@ const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, 
   api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
 };
 
-/**
- * Map a component_id (stored in DB) to the actual React component.
- * Add new simulations here as your library grows.
- */
-function SimulationRenderer({ componentId }: { componentId: string }) {
-  switch (componentId) {
-    case 'quantum':    return <QuantumBlochSphere />;
-    case 'threebody':  return <ThreeBodySim />;
-    default:
-      return (
-        <div className="flex flex-col items-center justify-center rounded-xl py-16 gap-3"
-          style={{ background: 'rgba(6,16,38,0.5)', border: '1px solid rgba(99,179,237,0.14)' }}>
-          <span className="text-3xl">🔬</span>
-          <p className="font-mono text-[11px] text-muted-foreground tracking-wider">
-            COMPONENT <span className="text-steami-cyan">"{componentId}"</span> NOT YET REGISTERED
-          </p>
-          <p className="font-mono text-[10px] text-muted-foreground/60">
-            Add it to the SimulationRenderer switch in SimulationsPage.tsx
-          </p>
-        </div>
-      );
+// ══════════════════════════════════════════════════════════════════════════════
+// INLINE 3D SCENE COMPONENTS — self-contained, no external deps
+// These mirror the scenes in ModerationPage so the same animation plays
+// in both the builder preview AND the public SimulationsPage modal.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ─── Types for inline scene props ───────────────────────────────────────────
+type ShapeId = 'sphere'|'cube'|'octahedron'|'tetrahedron'|'torus'|'dodecahedron'|'icosahedron'|'cone'|'cylinder';
+
+function makeGeoInline(shape: ShapeId, size = 0.45): THREE.BufferGeometry {
+  switch (shape) {
+    case 'sphere':       return new THREE.SphereGeometry(size, 16, 12);
+    case 'cube':         return new THREE.BoxGeometry(size*1.8, size*1.8, size*1.8);
+    case 'octahedron':   return new THREE.OctahedronGeometry(size * 1.4);
+    case 'tetrahedron':  return new THREE.TetrahedronGeometry(size * 1.5);
+    case 'torus':        return new THREE.TorusGeometry(size * 0.9, size * 0.35, 10, 28);
+    case 'dodecahedron': return new THREE.DodecahedronGeometry(size * 1.2);
+    case 'icosahedron':  return new THREE.IcosahedronGeometry(size * 1.2);
+    case 'cone':         return new THREE.ConeGeometry(size, size * 2, 14);
+    case 'cylinder':     return new THREE.CylinderGeometry(size * 0.7, size * 0.7, size * 1.8, 14);
+    default:             return new THREE.SphereGeometry(size, 16, 12);
   }
+}
+
+interface BlochProps { autoMode: boolean; theta: number; phi: number; bitShape: ShapeId; }
+
+function BlochSceneInline({ autoMode, theta, phi, bitShape }: BlochProps) {
+  const vecRef     = useRef<THREE.Mesh>(null!);
+  const haloRef    = useRef<THREE.Mesh>(null!);
+  const lineGeoRef = useRef(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,1.5,0)]));
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    let x: number, y: number, z: number;
+
+    if (autoMode) {
+      const th = Math.PI / 2 + Math.sin(t * 0.8) * 0.5;
+      const ph = t * 0.7;
+      x = Math.sin(th) * Math.cos(ph) * 1.5;
+      y = Math.cos(th) * 1.5;
+      z = Math.sin(th) * Math.sin(ph) * 1.5;
+    } else {
+      const tRad = theta * Math.PI / 180;
+      const pRad = phi   * Math.PI / 180;
+      x = Math.sin(tRad) * Math.cos(pRad) * 1.5;
+      y = Math.cos(tRad) * 1.5;
+      z = Math.sin(tRad) * Math.sin(pRad) * 1.5;
+    }
+
+    vecRef.current?.position.set(x, y, z);
+    if (haloRef.current) {
+      haloRef.current.position.set(x, y, z);
+      haloRef.current.scale.setScalar(1 + 0.1 * Math.sin(t * 2));
+    }
+    lineGeoRef.current.setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(x,y,z)]);
+  });
+
+  const axisPairs: [THREE.Vector3, THREE.Vector3][] = [
+    [new THREE.Vector3(0,0,0), new THREE.Vector3(0, 2,0)],
+    [new THREE.Vector3(0,0,0), new THREE.Vector3(0,-2,0)],
+    [new THREE.Vector3(0,0,0), new THREE.Vector3( 2,0,0)],
+    [new THREE.Vector3(0,0,0), new THREE.Vector3(-2,0,0)],
+  ];
+  const axisColors = ['#26de81','#fc5c65','#63b3ed','#a78bfa'];
+
+  return (
+    <group>
+      <Sphere args={[1.5, 32, 24]}>
+        <meshBasicMaterial color="#0d2040" transparent opacity={0.45} side={THREE.DoubleSide} />
+      </Sphere>
+      <Torus args={[1.5, 0.012, 6, 64]} rotation={[Math.PI/2, 0, 0]}>
+        <meshBasicMaterial color="#1a3a70" transparent opacity={0.5} />
+      </Torus>
+      <Torus args={[1.5, 0.012, 6, 64]}>
+        <meshBasicMaterial color="#1a3a70" transparent opacity={0.5} />
+      </Torus>
+      {axisPairs.map((pts, i) => (
+        <Line key={i} points={pts} color={axisColors[i]} lineWidth={1.5} transparent opacity={0.5} />
+      ))}
+      {/* State vector line */}
+      <primitive object={new THREE.Line(lineGeoRef.current, new THREE.LineBasicMaterial({ color: '#f5d07a', linewidth: 2 }))} />
+      <mesh ref={vecRef}>
+        <sphereGeometry args={[0.1, 10, 10]} />
+        <meshBasicMaterial color="#f5d07a" />
+      </mesh>
+      <mesh ref={haloRef}>
+        <sphereGeometry args={[0.18, 10, 10]} />
+        <meshBasicMaterial color="#f5d07a" transparent opacity={0.18} />
+      </mesh>
+      <Text position={[0, 1.85, 0]} fontSize={0.18} color="#26de81" anchorX="center">|0⟩</Text>
+      <Text position={[0,-1.85, 0]} fontSize={0.18} color="#fc5c65" anchorX="center">|1⟩</Text>
+      {/* Classical bit */}
+      <group position={[3.2, 0, 0]}>
+        <mesh key={bitShape}>
+          <primitive object={makeGeoInline(bitShape, 0.38)} attach="geometry" />
+          <meshStandardMaterial color="#fc5c65" emissive="#fc5c65" emissiveIntensity={0.2} />
+        </mesh>
+        <Text position={[0,-0.7,0]} fontSize={0.14} color="#fc5c65" anchorX="center">BIT</Text>
+      </group>
+    </group>
+  );
+}
+
+function ThreeBodySceneInline({ autoMode = true }: { autoMode?: boolean }) {
+  const G = 0.8;
+  const bodiesRef = useRef([
+    { pos: new THREE.Vector3(-1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: 1 },
+    { pos: new THREE.Vector3( 1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: 1 },
+    { pos: new THREE.Vector3( 0,  0,0), vel: new THREE.Vector3(-0.694,-1.064,0), mass: 1.5 },
+  ]);
+  const m0 = useRef<THREE.Mesh>(null!);
+  const m1 = useRef<THREE.Mesh>(null!);
+  const m2 = useRef<THREE.Mesh>(null!);
+  const meshRefs = [m0, m1, m2];
+  const COLORS = ['#63b3ed','#f5d07a','#fb923c'];
+
+  useFrame(() => {
+    if (!autoMode) return;
+    const bs = bodiesRef.current;
+    const dt = 0.006;
+    const forces = bs.map(() => new THREE.Vector3());
+    for (let i = 0; i < 3; i++) {
+      for (let j = i+1; j < 3; j++) {
+        const diff = new THREE.Vector3().subVectors(bs[j].pos, bs[i].pos);
+        const dist = Math.max(diff.length(), 0.3);
+        const fd   = diff.normalize().multiplyScalar(G * bs[i].mass * bs[j].mass / (dist*dist));
+        forces[i].add(fd); forces[j].sub(fd);
+      }
+    }
+    bs.forEach((b,i) => {
+      b.vel.addScaledVector(forces[i], dt/b.mass);
+      b.pos.addScaledVector(b.vel, dt);
+      meshRefs[i].current?.position.copy(b.pos);
+    });
+  });
+
+  return (
+    <group>
+      <pointLight position={[0,0,4]} intensity={1.5} />
+      {COLORS.map((color, i) => (
+        <Trail key={i} width={0.8} length={40} color={color} attenuation={(t)=>t*t}>
+          <mesh ref={meshRefs[i]}>
+            <sphereGeometry args={[0.18,12,12]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
+          </mesh>
+        </Trail>
+      ))}
+    </group>
+  );
+}
+
+interface WaveProps { autoMode: boolean; waveMode: 'ripple'|'standing'|'interference'|'gaussian'; amplitude: number; frequency: number; }
+
+function WaveSceneInline({ autoMode, waveMode, amplitude, frequency }: WaveProps) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const geoRef  = useRef(new THREE.PlaneGeometry(8, 8, 60, 60));
+
+  useFrame(({ clock }) => {
+    if (!autoMode) return;
+    const t   = clock.getElapsedTime();
+    const pos = meshRef.current?.geometry.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i);
+      const r = Math.sqrt(x*x + y*y);
+      let z = 0;
+      switch (waveMode) {
+        case 'ripple':
+          z = amplitude * Math.sin(r * frequency - t * 3) * Math.exp(-r * 0.25); break;
+        case 'standing':
+          z = amplitude * Math.sin(x * frequency) * Math.cos(t * 3); break;
+        case 'interference': {
+          const d1 = Math.sqrt((x-1.5)*(x-1.5)+y*y);
+          const d2 = Math.sqrt((x+1.5)*(x+1.5)+y*y);
+          z = amplitude * 0.5 * (Math.sin(d1*frequency-t*3)+Math.sin(d2*frequency-t*3)); break;
+        }
+        case 'gaussian': {
+          const sigma = 1.5;
+          z = amplitude * Math.exp(-(x*x+y*y)/(2*sigma*sigma)) * Math.cos(frequency*x - t*2); break;
+        }
+      }
+      pos.setZ(i, z);
+    }
+    pos.needsUpdate = true;
+    meshRef.current.geometry.computeVertexNormals();
+  });
+
+  return (
+    <group rotation={[-Math.PI/3,0,0]}>
+      <mesh ref={meshRef} geometry={geoRef.current}>
+        <meshStandardMaterial color="#63b3ed" wireframe transparent opacity={0.7} />
+      </mesh>
+      <pointLight position={[0,4,4]} intensity={2} color="#63b3ed" />
+    </group>
+  );
+}
+
+function OrbitsSceneInline({ autoMode = true }: { autoMode?: boolean }) {
+  const planets = [
+    { r:1.8, speed:1.5, size:0.12, color:'#63b3ed' },
+    { r:2.8, speed:0.9, size:0.18, color:'#f5d07a' },
+    { r:3.8, speed:0.6, size:0.14, color:'#fb923c' },
+    { r:4.8, speed:0.4, size:0.22, color:'#a78bfa' },
+  ];
+  const p0=useRef<THREE.Mesh>(null!), p1=useRef<THREE.Mesh>(null!);
+  const p2=useRef<THREE.Mesh>(null!), p3=useRef<THREE.Mesh>(null!);
+  const pRefs = [p0,p1,p2,p3];
+
+  useFrame(({ clock }) => {
+    if (!autoMode) return;
+    const t = clock.getElapsedTime();
+    planets.forEach((p,i) => {
+      pRefs[i].current?.position.set(Math.cos(t*p.speed)*p.r, 0, Math.sin(t*p.speed)*p.r);
+    });
+  });
+
+  const ring = (r: number) =>
+    Array.from({length:65},(_,i)=>{const a=(i/64)*Math.PI*2; return new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r);});
+
+  return (
+    <group>
+      <Sphere args={[0.5,20,20]}>
+        <meshStandardMaterial color="#f5d07a" emissive="#f5a623" emissiveIntensity={1.2} />
+      </Sphere>
+      <pointLight position={[0,0,0]} intensity={3} color="#fff5c0" distance={12} />
+      {planets.map((p,i) => (
+        <group key={i}>
+          <Line points={ring(p.r)} color={p.color} lineWidth={0.5} transparent opacity={0.2} />
+          <Trail width={0.5} length={20} color={p.color} attenuation={(t)=>t}>
+            <mesh ref={pRefs[i]}>
+              <sphereGeometry args={[p.size,10,10]} />
+              <meshStandardMaterial color={p.color} emissive={p.color} emissiveIntensity={0.3} />
+            </mesh>
+          </Trail>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+const SHAPES_LIST: { id: ShapeId; label: string; icon: string }[] = [
+  { id:'sphere',       label:'Sphere',       icon:'○' },
+  { id:'cube',         label:'Cube',         icon:'□' },
+  { id:'octahedron',   label:'Octahedron',   icon:'◇' },
+  { id:'tetrahedron',  label:'Tetrahedron',  icon:'△' },
+  { id:'torus',        label:'Torus',        icon:'⊙' },
+  { id:'dodecahedron', label:'Dodecahedron', icon:'⬡' },
+  { id:'icosahedron',  label:'Icosahedron',  icon:'◈' },
+  { id:'cone',         label:'Cone',         icon:'▽' },
+  { id:'cylinder',     label:'Cylinder',     icon:'⊏' },
+];
+
+/**
+ * Full interactive wrapper for any known simulation preset.
+ * Renders a live R3F Canvas + auto/manual toggle + per-preset controls.
+ */
+function LiveSimWrapper({ componentId }: { componentId: string }) {
+  const [autoMode,  setAutoMode]  = useState(true);
+  const [theta,     setTheta]     = useState(45);
+  const [phi,       setPhi]       = useState(0);
+  const [bitShape,  setBitShape]  = useState<ShapeId>('cube');
+  const [waveMode,  setWaveMode]  = useState<'ripple'|'standing'|'interference'|'gaussian'>('ripple');
+  const [waveAmp,   setWaveAmp]   = useState(1.0);
+  const [waveFreq,  setWaveFreq]  = useState(2.0);
+
+  const canvasH = 420;
+  const bgStyle: React.CSSProperties = {
+    height: canvasH, background: '#03060f',
+    border: '1px solid rgba(99,179,237,0.14)',
+  };
+
+  const scene = (() => {
+    switch (componentId) {
+      case 'bloch':
+      case 'quantum':
+        return (
+          <BlochSceneInline
+            autoMode={autoMode} theta={theta} phi={phi} bitShape={bitShape}
+          />
+        );
+      case 'threebody':
+        return <ThreeBodySceneInline autoMode={autoMode} />;
+      case 'wave':
+        return <WaveSceneInline autoMode={autoMode} waveMode={waveMode} amplitude={waveAmp} frequency={waveFreq} />;
+      case 'orbits':
+        return <OrbitsSceneInline autoMode={autoMode} />;
+      default:
+        return null;
+    }
+  })();
+
+  if (!scene) return null;
+
+  return (
+    <div className="space-y-4">
+      {/* Canvas */}
+      <div className="w-full rounded-xl overflow-hidden relative" style={bgStyle}>
+        <Canvas camera={{ position:[0,2,6], fov:55 }} style={{ width:'100%', height:'100%' }}>
+          <Suspense fallback={null}>
+            <Stars radius={30} depth={10} count={600} factor={3} fade />
+            <Grid args={[12,12]} position={[0,-2.5,0]} cellColor="#0a1428" sectionColor="#0d2040" />
+            <ambientLight intensity={0.4} />
+            <pointLight position={[5,5,5]} intensity={1.5} />
+            {scene}
+            <OrbitControls enablePan enableZoom enableRotate />
+          </Suspense>
+        </Canvas>
+        {/* Mode badge */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2 py-1 rounded"
+          style={{ background:'rgba(3,6,15,0.8)', border:'1px solid rgba(99,179,237,0.2)' }}>
+          <span className={`w-1.5 h-1.5 rounded-full ${autoMode ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`} />
+          <span className="font-mono text-[9px] text-muted-foreground tracking-wider">
+            {autoMode ? 'AUTO' : 'MANUAL'}
+          </span>
+        </div>
+        <div className="absolute top-3 left-3 font-mono text-[9px] text-white/20 pointer-events-none">
+          DRAG · SCROLL · ROTATE
+        </div>
+      </div>
+
+      {/* ── Controls row ── */}
+      <div className="rounded-xl p-4 space-y-4"
+        style={{ background:'rgba(6,16,38,0.6)', border:'1px solid rgba(99,179,237,0.12)' }}>
+
+        {/* Auto / Manual toggle */}
+        <div className="flex gap-2">
+          <button onClick={() => setAutoMode(true)}
+            className={`flex-1 flex items-center justify-center gap-2 rounded-lg border py-2 text-[11px] font-mono transition-all ${
+              autoMode
+                ? 'border-green-500/50 bg-green-500/10 text-green-400'
+                : 'border-white/10 text-muted-foreground hover:border-white/20'
+            }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${autoMode ? 'bg-green-400 animate-pulse' : 'bg-white/20'}`} />
+            ⟳ AUTO
+          </button>
+          <button onClick={() => setAutoMode(false)}
+            className={`flex-1 flex items-center justify-center gap-2 rounded-lg border py-2 text-[11px] font-mono transition-all ${
+              !autoMode
+                ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
+                : 'border-white/10 text-muted-foreground hover:border-white/20'
+            }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${!autoMode ? 'bg-yellow-400' : 'bg-white/20'}`} />
+            ⊙ MANUAL
+          </button>
+        </div>
+
+        {/* Bloch-specific manual controls */}
+        {(componentId === 'bloch' || componentId === 'quantum') && !autoMode && (
+          <div className="space-y-2 pt-1 border-t border-white/5">
+            <p className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">State Vector Angles</p>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] text-muted-foreground w-16">θ (polar)</span>
+              <input type="range" min="0" max="180" value={theta}
+                onChange={e => setTheta(+e.target.value)}
+                className="flex-1 accent-yellow-400" />
+              <span className="font-mono text-[11px] text-yellow-400 w-10 text-right">{theta}°</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] text-muted-foreground w-16">φ (azimuth)</span>
+              <input type="range" min="0" max="360" value={phi}
+                onChange={e => setPhi(+e.target.value)}
+                className="flex-1 accent-[#63b3ed]" />
+              <span className="font-mono text-[11px] text-steami-cyan w-10 text-right">{phi}°</span>
+            </div>
+          </div>
+        )}
+
+        {/* Bloch classical bit shape picker */}
+        {(componentId === 'bloch' || componentId === 'quantum') && (
+          <div className="pt-1 border-t border-white/5">
+            <p className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase mb-2">Classical Bit Shape</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SHAPES_LIST.map(s => (
+                <button key={s.id} onClick={() => setBitShape(s.id)}
+                  className={`font-mono text-[10px] px-2 py-1 rounded border transition-all ${
+                    bitShape === s.id
+                      ? 'border-red-400/60 bg-red-400/10 text-red-400'
+                      : 'border-white/10 text-muted-foreground hover:border-white/20'
+                  }`}>
+                  {s.icon} {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Wave-specific controls */}
+        {componentId === 'wave' && (
+          <div className="space-y-3 pt-1 border-t border-white/5">
+            <p className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">Wave Parameters</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {(['ripple','standing','interference','gaussian'] as const).map(m => (
+                <button key={m} onClick={() => setWaveMode(m)}
+                  className={`font-mono text-[10px] px-2.5 py-1 rounded border transition-all capitalize ${
+                    waveMode === m
+                      ? 'border-steami-cyan/60 bg-steami-cyan/10 text-steami-cyan'
+                      : 'border-white/10 text-muted-foreground hover:border-white/20'
+                  }`}>{m}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-20">Amplitude</span>
+              <input type="range" min="0.1" max="3" step="0.05" value={waveAmp}
+                onChange={e => setWaveAmp(+e.target.value)}
+                className="flex-1 accent-[#63b3ed]" />
+              <span className="font-mono text-[10px] text-steami-cyan w-8 text-right">{waveAmp.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-20">Frequency</span>
+              <input type="range" min="0.3" max="6" step="0.1" value={waveFreq}
+                onChange={e => setWaveFreq(+e.target.value)}
+                className="flex-1 accent-[#a78bfa]" />
+              <span className="font-mono text-[10px] text-steami-cyan w-8 text-right">{waveFreq.toFixed(1)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Map a component_id → live animated scene or fallback.
+ */
+function SimulationRenderer({ componentId, glbUrl }: { componentId: string; glbUrl?: string }) {
+  // 1. Dedicated standalone legacy components
+  switch (componentId) {
+    case 'quantum':
+      return <QuantumBlochSphere />;
+    case 'threebody_standalone':
+      return <ThreeBodySim />;
+  }
+
+  // 2. Builder presets — live animated inline scenes with controls
+  const livePresets = ['bloch', 'wave', 'orbits', 'threebody'];
+  if (livePresets.includes(componentId)) {
+    return <LiveSimWrapper componentId={componentId} />;
+  }
+
+  // 3. GLB fallback (static)
+  if (glbUrl) {
+    return (
+      <div className="w-full rounded-xl overflow-hidden" style={{ height: 420 }}>
+        {/* @ts-ignore */}
+        <model-viewer src={glbUrl} alt={componentId} auto-rotate camera-controls
+          style={{ width:'100%', height:'100%', background:'rgba(6,16,38,0.5)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl py-16 gap-3"
+      style={{ background:'rgba(6,16,38,0.5)', border:'1px solid rgba(99,179,237,0.14)' }}>
+      <span className="text-3xl">🔬</span>
+      <p className="font-mono text-[11px] text-muted-foreground tracking-wider">
+        COMPONENT <span className="text-steami-cyan">"{componentId}"</span> NOT YET REGISTERED
+      </p>
+    </div>
+  );
 }
 
 // ─── Skeleton card shown while loading ───────────────────────────────────────
@@ -79,6 +521,52 @@ function SimulationSkeleton() {
   );
 }
 
+// ─── Live mini-preview on each card ─────────────────────────────────────────
+// Shows a tiny animated canvas instead of a static snapshot thumbnail.
+
+function CardLivePreview({ componentId }: { componentId: string }) {
+  const knownPresets = ['bloch', 'wave', 'orbits', 'quantum', 'threebody'];
+  if (!knownPresets.includes(componentId)) return null;
+
+  const scene = (() => {
+    switch (componentId) {
+      case 'bloch':     case 'quantum':    return <BlochSceneInline autoMode theta={45} phi={0} bitShape="cube" />;
+      case 'threebody':                    return <ThreeBodySceneInline autoMode />;
+      case 'wave':                         return <WaveSceneInline autoMode waveMode="ripple" amplitude={1} frequency={2} />;
+      case 'orbits':                       return <OrbitsSceneInline autoMode />;
+      default:                             return null;
+    }
+  })();
+  if (!scene) return null;
+
+  return (
+    <div className="relative overflow-hidden" style={{ height: 140 }}>
+      <Canvas
+        camera={{ position:[0,1.5,5], fov:50 }}
+        style={{ width:'100%', height:'100%', background:'#03060f' }}
+        gl={{ antialias: true }}
+      >
+        <Suspense fallback={null}>
+          <ambientLight intensity={0.5} />
+          <pointLight position={[5,5,5]} intensity={1.5} />
+          {scene}
+        </Suspense>
+      </Canvas>
+      {/* gradient fade into card body */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, transparent 40%, var(--steami-card-bg, #07111f) 100%)' }}
+      />
+      {/* "LIVE" badge */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded"
+        style={{ background: 'rgba(3,6,15,0.7)', border: '1px solid rgba(99,179,237,0.25)' }}>
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-steami-green animate-pulse" />
+        <span className="font-mono text-[9px] text-steami-green tracking-wider">LIVE</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SimulationsPage() {
@@ -86,8 +574,21 @@ export default function SimulationsPage() {
   const [loadingList,       setLoadingList]       = useState(true);
   const [listError,         setListError]         = useState('');
   const [openSim,           setOpenSim]           = useState<string | null>(null);
+  // Stores a freshly-fetched copy of the opened simulation so glb_url /
+  // snapshot_url are always up-to-date (list may have been fetched before upload)
+  const [openedSimFresh,    setOpenedSimFresh]    = useState<SimulationRecord | null>(null);
   const [expandedInsights,  setExpandedInsights]  = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Inject the Google model-viewer web component once (needed for GLB fallback)
+  useEffect(() => {
+    if (document.querySelector('script[data-model-viewer]')) return;
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src  = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js';
+    s.setAttribute('data-model-viewer', '1');
+    document.head.appendChild(s);
+  }, []);
 
   // ── Fetch simulations from backend ─────────────────────────────────────────
   useEffect(() => {
@@ -97,7 +598,6 @@ export default function SimulationsPage() {
     api.simulations.list()
       .then((data: any) => {
         if (cancelled) return;
-        // Backend returns { simulations: [...], total: n }
         const list: SimulationRecord[] = Array.isArray(data)
           ? data
           : data?.simulations ?? [];
@@ -109,6 +609,16 @@ export default function SimulationsPage() {
       .finally(() => { if (!cancelled) setLoadingList(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // ── Fresh-fetch whenever the modal opens ───────────────────────────────────
+  useEffect(() => {
+    if (!openSim) { setOpenedSimFresh(null); return; }
+    api.simulations.get(openSim)
+      .then((data: any) => setOpenedSimFresh(data as SimulationRecord))
+      .catch(() => {
+        setOpenedSimFresh(simulations.find((s) => s.id === openSim) ?? null);
+      });
+  }, [openSim]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-open via URL param ?simulation=quantum ────────────────────────────
   useEffect(() => {
@@ -132,15 +642,18 @@ export default function SimulationsPage() {
   const toggleInsights = (id: string) =>
     setExpandedInsights((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const openedSim = simulations.find((s) => s.id === openSim);
+  const openedSim = openedSimFresh ?? simulations.find((s) => s.id === openSim);
 
-  // ── Accent colour per simulation (fallback if fieldColor not set) ──────────
   const accentColor = (sim: SimulationRecord) =>
-    sim.simulation_type === 'bloch_sphere' || sim.component_id === 'quantum'
+    sim.simulation_type === 'bloch_sphere' || sim.component_id === 'quantum' || sim.component_id === 'bloch'
       ? 'hsl(var(--steami-violet))'
       : sim.simulation_type === 'three_body' || sim.component_id === 'threebody'
       ? 'hsl(var(--steami-cyan))'
       : 'hsl(var(--steami-gold))';
+
+  // Whether this sim has a live animated component (vs static/unknown)
+  const hasLivePreview = (sim: SimulationRecord) =>
+    ['quantum','threebody','bloch','wave','orbits'].includes(sim.component_id);
 
   return (
     <SteamiLayout>
@@ -199,8 +712,11 @@ export default function SimulationsPage() {
                 transition={{ delay: 0.3 + idx * 0.1, duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
               />
 
-              {/* Snapshot thumbnail — shown if available */}
-              {sim.snapshot_url && (
+              {/* Live animated preview — shown for known presets */}
+              {hasLivePreview(sim) ? (
+                <CardLivePreview componentId={sim.component_id} />
+              ) : sim.snapshot_url ? (
+                /* Fall back to static snapshot for unknown component_ids */
                 <div className="relative overflow-hidden" style={{ height: 140 }}>
                   <img
                     src={sim.snapshot_url}
@@ -208,13 +724,12 @@ export default function SimulationsPage() {
                     className="w-full h-full object-cover"
                     style={{ filter: 'brightness(0.75) saturate(1.2)' }}
                   />
-                  {/* Gradient fade into card body */}
                   <div
                     className="absolute inset-0"
                     style={{ background: 'linear-gradient(to bottom, transparent 40%, var(--steami-card-bg, #07111f) 100%)' }}
                   />
                 </div>
-              )}
+              ) : null}
 
               <div className="p-7">
                 <span className={`steami-badge ${sim.fieldColor || 'steami-badge-cyan'} mb-3 inline-block`}>
@@ -396,14 +911,14 @@ export default function SimulationsPage() {
                   {openedSim.description}
                 </motion.p>
 
-                {/* 3D Simulation — rendered by component_id */}
+                {/* 3D Simulation — live animated via component_id */}
                 <motion.div
                   className="mb-4"
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.25, duration: 0.4 }}
                 >
-                  <SimulationRenderer componentId={openedSim.component_id} />
+                  <SimulationRenderer componentId={openedSim.component_id} glbUrl={openedSim.glb_url} />
                 </motion.div>
 
                 {/* Caption */}

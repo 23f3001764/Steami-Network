@@ -175,9 +175,9 @@ export default function PrivacyPolicyPage() {
           --accent-2: #ff3b6b;
           --surface:  #f5f5fa;
           --white:    #ffffff;
-          --mono: 'VT323', monospace;
-          --sans: 'VT323', monospace;
-          --display: 'VT323', monospace;
+          --mono: 'DM Mono', 'Fira Mono', monospace;
+          --sans: 'Instrument Sans', 'Helvetica Neue', sans-serif;
+          --display: 'Playfair Display', Georgia, serif;
 
           font-family: var(--sans);
           color: var(--ink);

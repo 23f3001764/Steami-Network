@@ -5,7 +5,6 @@ import { ShareMenu } from '@/components/ShareMenu';
 import { BookOpen } from 'lucide-react';
 import { useThemeStore } from '@/stores/theme-store';
 import { FIELD_COLORS } from '@/data/research-articles';
-import { cn } from '@/lib/utils';
 
 interface ResearchCardProps {
   article: any;
@@ -21,11 +20,7 @@ export const ResearchCard = ({ article, idx, onSelect, fieldImg }: ResearchCardP
     <motion.div
       key={article.id}
       whileTap={cardTap}
-      data-hover-depth="strong"
-      className={cn(
-        "glass-card steami-hover-card relative p-0 cursor-pointer group/card flex flex-col sm:flex-row h-full min-h-[320px]",
-        isLight ? "bg-white/40 border-zinc-200/50" : ""
-      )}
+      className="glass-card relative p-0 cursor-pointer overflow-hidden group/card flex flex-col sm:flex-row h-full min-h-[320px]"
       onClick={() => onSelect(article)}
     >
       {/* Left accent bar (vertical) */}

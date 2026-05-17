@@ -1,8 +1,8 @@
-/* Removed old font import */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
 
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -59,9 +59,9 @@
 
     --steami-modal-bg: rgba(5, 12, 28, 0.9);
 
-    --font-mono: 'VT323', monospace;
-    --font-serif: 'VT323', monospace;
-    --font-sans: 'VT323', monospace;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-serif: 'Playfair Display', Georgia, serif;
+    --font-sans: 'IBM Plex Sans', sans-serif;
 
     --sidebar-background: 224 55% 5%;
     --sidebar-foreground: 214 30% 82%;
@@ -129,7 +129,7 @@
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    @apply border-border;
   }
 
   body {
@@ -147,7 +147,7 @@
     -webkit-text-size-adjust: 100%;
     transition: background 0.5s ease, color 0.3s ease;
   }
-
+  
   html {
     scroll-behavior: smooth;
     overflow-x: clip;
@@ -245,7 +245,6 @@
     color: hsl(var(--steami-cyan));
     background: rgba(111, 168, 255, 0.08);
   }
-
   [data-theme="light"] .steami-badge-cyan {
     background: rgba(0, 92, 194, 0.08);
   }
@@ -255,7 +254,6 @@
     color: hsl(var(--steami-gold));
     background: rgba(232, 184, 75, 0.1);
   }
-
   [data-theme="light"] .steami-badge-gold {
     background: rgba(138, 112, 32, 0.08);
   }
@@ -378,16 +376,13 @@
 ::-webkit-scrollbar {
   width: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
   background: rgba(111, 168, 255, 0.15);
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(111, 168, 255, 0.3);
 }
@@ -395,89 +390,55 @@
 [data-theme="light"] ::-webkit-scrollbar-thumb {
   background: rgba(59, 130, 246, 0.2);
 }
-
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(59, 130, 246, 0.35);
 }
 
 @keyframes blink {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.3;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 @keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
 @keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 5px rgba(111, 168, 255, 0.15);
-  }
-
-  50% {
-    box-shadow: 0 0 15px rgba(111, 168, 255, 0.25);
-  }
+  0%, 100% { box-shadow: 0 0 5px rgba(111, 168, 255, 0.15); }
+  50% { box-shadow: 0 0 15px rgba(111, 168, 255, 0.25); }
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @keyframes glow-border {
-
-  0%,
-  100% {
-    border-color: rgba(111, 168, 255, 0.14);
-  }
-
-  50% {
-    border-color: rgba(111, 168, 255, 0.3);
-  }
+  0%, 100% { border-color: rgba(111, 168, 255, 0.14); }
+  50% { border-color: rgba(111, 168, 255, 0.3); }
 }
 
 /* ── Micro-interaction utilities ──────────────────────────────── */
 .glass-card {
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.25s ease,
-    box-shadow 0.3s ease,
-    background 0.25s ease;
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1),
+              border-color 0.25s ease,
+              box-shadow 0.3s ease,
+              background 0.25s ease;
   will-change: transform;
 }
 
 .glass-card:hover {
   transform: translateY(-3px) scale(1.008);
   box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5),
-    0 0 24px rgba(111, 168, 255, 0.06),
-    inset 0 1px 0 var(--steami-metal-highlight);
+              0 0 24px rgba(111, 168, 255, 0.06),
+              inset 0 1px 0 var(--steami-metal-highlight);
 }
 
 [data-theme="light"] .glass-card:hover {
   box-shadow: 0 8px 28px rgba(0, 40, 100, 0.12),
-    0 2px 6px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 var(--steami-metal-highlight);
+              0 2px 6px rgba(0, 0, 0, 0.04),
+              inset 0 1px 0 var(--steami-metal-highlight);
 }
 
 .glass-card:active {
@@ -486,7 +447,7 @@
 }
 
 .steami-btn {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
   will-change: transform, box-shadow;
 }
 
@@ -506,9 +467,9 @@
 /* Shimmer loading effect */
 .shimmer {
   background: linear-gradient(90deg,
-      rgba(111, 168, 255, 0.03) 25%,
-      rgba(111, 168, 255, 0.08) 50%,
-      rgba(111, 168, 255, 0.03) 75%);
+    rgba(111, 168, 255, 0.03) 25%,
+    rgba(111, 168, 255, 0.08) 50%,
+    rgba(111, 168, 255, 0.03) 75%);
   background-size: 200% 100%;
   animation: shimmer 2s ease-in-out infinite;
 }
@@ -518,14 +479,13 @@
 .glass-card:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgba(111, 168, 255, 0.4),
-    0 0 15px rgba(111, 168, 255, 0.1);
+              0 0 15px rgba(111, 168, 255, 0.1);
 }
 
 /* Smooth link underline animation */
 .nav-link-animated {
   position: relative;
 }
-
 .nav-link-animated::after {
   content: '';
   position: absolute;
@@ -536,56 +496,19 @@
   background: hsl(var(--steami-cyan));
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
 }
-
 .nav-link-animated:hover::after,
 .nav-link-animated.active::after {
   transform: scaleX(1);
 }
 
 /* SVG micro-animation keyframes */
-@keyframes svg-pulse {
-
-  0%,
-  100% {
-    opacity: .35
-  }
-
-  50% {
-    opacity: .8
-  }
-}
-
-@keyframes svg-rotate {
-  to {
-    transform: rotate(360deg)
-  }
-}
-
-@keyframes svg-dash {
-  to {
-    stroke-dashoffset: 0
-  }
-}
-
-@keyframes svg-orbit {
-  to {
-    transform: rotate(360deg)
-  }
-}
-
-@keyframes svg-float {
-
-  0%,
-  100% {
-    transform: translateY(0)
-  }
-
-  50% {
-    transform: translateY(-3px)
-  }
-}
+@keyframes svg-pulse { 0%,100%{opacity:.35} 50%{opacity:.8} }
+@keyframes svg-rotate { to{transform:rotate(360deg)} }
+@keyframes svg-dash { to{stroke-dashoffset:0} }
+@keyframes svg-orbit { to{transform:rotate(360deg)} }
+@keyframes svg-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
 
 /* Light theme image clarity */
 [data-theme="light"] .glass-card img,
@@ -595,17 +518,13 @@
 
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-
   .glass-card,
   .steami-btn,
   .steami-badge {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
-
-  [class*="svg-"] {
-    animation: none !important;
-  }
+  [class*="svg-"] { animation: none !important; }
 }
 
 @media (max-width: 640px) {
@@ -622,146 +541,3 @@
     overflow-wrap: anywhere;
   }
 }
-
-/* ── Steami Premium Hover Effects ────────────────────────────── */
-
-.home-page-scope .steami-hover-card {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  transform-style: preserve-3d;
-  transition: 
-    transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 420ms ease,
-    box-shadow 420ms ease,
-    background 420ms ease;
-}
-
-/* Dark Theme Variables */
-.dark .home-page-scope .steami-hover-card,
-[data-theme="dark"] .home-page-scope .steami-hover-card {
-  --card-core-a: rgba(94, 165, 255, 0.20);
-  --card-core-b: rgba(245, 197, 66, 0.16);
-  --card-core-c: rgba(17, 24, 39, 0.72);
-  --card-border-hover: rgba(116, 178, 255, 0.45);
-  --card-shadow-hover: rgba(45, 115, 255, 0.22);
-  --card-sweep: rgba(255, 255, 255, 0.16);
-}
-
-/* Light Theme Variables */
-.light .home-page-scope .steami-hover-card,
-[data-theme="light"] .home-page-scope .steami-hover-card {
-  --card-core-a: rgba(30, 111, 190, 0.14);
-  --card-core-b: rgba(214, 156, 34, 0.14);
-  --card-core-c: rgba(255, 255, 255, 0.78);
-  --card-border-hover: rgba(40, 116, 190, 0.28);
-  --card-shadow-hover: rgba(30, 96, 160, 0.14);
-  --card-sweep: rgba(255, 255, 255, 0.72);
-}
-
-/* Background Energy Layer */
-.home-page-scope .steami-hover-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  opacity: 0;
-  background:
-    radial-gradient(circle at 20% 20%, var(--card-core-a), transparent 34%),
-    radial-gradient(circle at 82% 18%, var(--card-core-b), transparent 30%),
-    linear-gradient(135deg, transparent, var(--card-core-c));
-  transform: scale(0.96);
-  transition:
-    opacity 420ms ease,
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Sweep Highlight Layer */
-.home-page-scope .steami-hover-card::after {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  z-index: -1;
-  opacity: 0;
-  background:
-    linear-gradient(
-      115deg,
-      transparent 35%,
-      var(--card-sweep) 48%,
-      transparent 62%
-    );
-  transform: translateX(-45%) rotate(8deg);
-  transition:
-    opacity 320ms ease,
-    transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-
-/* Hover States */
-.home-page-scope .steami-hover-card:hover {
-  transform: translateY(-8px) scale(1.012);
-  border-color: var(--card-border-hover) !important;
-  box-shadow:
-    0 24px 80px var(--card-shadow-hover),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.home-page-scope .steami-hover-card[data-hover-depth="strong"]:hover {
-  transform: translateY(-12px) scale(1.018);
-}
-
-.home-page-scope .steami-hover-card:hover::before {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.home-page-scope .steami-hover-card:hover::after {
-  opacity: 1;
-  transform: translateX(45%) rotate(8deg);
-}
-
-/* Optional Mouse Glow Layer */
-.home-page-scope .steami-mouse-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  opacity: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    var(--card-core-a),
-    transparent 45%
-  );
-  transition: opacity 300ms ease;
-}
-
-.home-page-scope .steami-hover-card:hover .steami-mouse-glow {
-  opacity: 1;
-}
-
-/* Optional 3D Tilt */
-.home-page-scope .steami-hover-card[data-tilt="true"]:hover {
-  transform: 
-    perspective(1000px)
-    rotateX(var(--tilt-x, 0deg))
-    rotateY(var(--tilt-y, 0deg))
-    translateY(-12px)
-    scale(1.018);
-}
-
-/* Reduced Motion Support */
-@media (prefers-reduced-motion: reduce) {
-  .home-page-scope .steami-hover-card,
-  .home-page-scope .steami-hover-card::before,
-  .home-page-scope .steami-hover-card::after,
-  .home-page-scope .steami-mouse-glow {
-    transition: none !important;
-    animation: none !important;
-  }
-
-  .home-page-scope .steami-hover-card:hover {
-    transform: none !important;
-    border-color: var(--card-border-hover) !important;
-  }
-}
-

@@ -1,12 +1,11 @@
 /**
- * SteamiNav.tsx  (merged)
+ * SteamiNav.tsx  (updated)
  * ─────────────────────────────────────────────────────────────────────────────
- * Full nav JSX from SteamiNav_old.tsx + newsletter additions from SteamiNav.tsx:
- *   1. Imports useNewsletterPopup + NewsletterModal
- *   2. Subscribe button in mobile drawer wired to open the modal
- *   3. Subscribe link in desktop nav (next to notification bell)
- *   4. NewsletterModal rendered at the bottom of the JSX tree
- *   5. All original logic is unchanged
+ * Changes from original:
+ *   1. "HOME" removed from navLinks — the STEAMI logo IS the home link now
+ *   2. STEAMI title always navigates to "/" (landing page) — no preventDefault
+ *      when already on "/", so users can always click back to the hero
+ *   3. Everything else unchanged
  */
 
 import { Link, useLocation } from 'react-router-dom';
@@ -18,12 +17,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Sun, Moon, LogIn, LogOut, ChevronDown, User,
   Bell, BookOpen, FlaskConical, Newspaper, X, ChevronRight,
-  Mail,  // NEWSLETTER
+  Mail,
 } from 'lucide-react';
 import { AuthModal }       from '@/components/AuthModal';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { NewsletterModal } from '@/components/NewsletterModal';        // NEWSLETTER
-import { useNewsletterPopup } from '@/hooks/use-newsletter-popup';     // NEWSLETTER
+import { NewsletterModal } from '@/components/NewsletterModal';
+import { useNewsletterPopup } from '@/hooks/use-newsletter-popup';
 import { api } from '@/lib/api';
 import { formatShortUserName, getInitials } from '@/lib/user-display';
 
@@ -44,7 +43,7 @@ interface NotificationItem {
 const TYPE_META: Record<ContentType, { label: string; Icon: React.ElementType; color: string }> = {
   explainer: { label: 'Explainer',        Icon: BookOpen,     color: '#00d9ff' },
   research:  { label: 'Research Article', Icon: FlaskConical, color: '#ff4ef0' },
-  blog:      { label: 'Intelligence',        Icon: Newspaper,    color: '#e8b84b' },
+  blog:      { label: 'Intelligence',     Icon: Newspaper,    color: '#e8b84b' },
 };
 
 const NOTIF_STORAGE_KEY   = 'steami_notif_since';
@@ -79,12 +78,11 @@ export function SteamiNav() {
   const [avatarUrl,     setAvatarUrl]     = useState<string | null>(null);
   const isLight = theme === 'light';
 
-  // NEWSLETTER ── manual open flag + deep-link detection
+  // NEWSLETTER
   const [nlOpen, setNlOpen] = useState(false);
   const [nlMode, setNlMode] = useState<'subscribe' | 'unsubscribe'>('subscribe');
   const nlPopup             = useNewsletterPopup();
 
-  // When deep-link is detected, open the modal in the correct mode
   useEffect(() => {
     if (nlPopup.mode) {
       setNlMode(nlPopup.mode);
@@ -100,17 +98,16 @@ export function SteamiNav() {
   const notifPanelRef                   = useRef<HTMLDivElement>(null);
   const notifPollerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Nav links ───────────────────────────────────────────────────────────────
+  // ── Nav links — HOME intentionally removed; STEAMI logo IS the home link ───
   const navLinks = [
-    { path: '/', label: 'HOME' },
-    { path: '/explainers', label: 'EXPLAINERS' },
-    { path: '/blog', label: 'INTELLIGENCE' },
-    { path: '/research', label: 'RESEARCH' },
+    { path: '/explainers',  label: 'EXPLAINERS' },
+    { path: '/blog',        label: 'INTELLIGENCE' },
+    { path: '/research',    label: 'RESEARCH' },
     { path: '/simulations', label: 'SIMULATIONS' },
     ...(isAuthenticated ? [{ path: '/dashboard', label: 'DASHBOARD' }] : []),
-    ...(user?.role === 'mod' || user?.role === 'admin' ? [{ path: '/moderation', label: 'MOD' }] : []),
-    ...(user?.role === 'admin' ? [{ path: '/admin', label: 'ADMIN' }] : []),
-    ...(user?.role === 'admin' ? [{ path: '/api-console', label: 'API' }] : []),
+    ...(user?.role === 'mod' || user?.role === 'admin' ? [{ path: '/moderation', label: 'MOD' }]    : []),
+    ...(user?.role === 'admin'                          ? [{ path: '/admin',      label: 'ADMIN' }]  : []),
+    ...(user?.role === 'admin'                          ? [{ path: '/api-console',label: 'API' }]    : []),
   ];
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -133,7 +130,6 @@ export function SteamiNav() {
     return () => window.removeEventListener('keydown', onKey);
   }, [menuOpen, closeMenu]);
 
-  // Fetch avatar for the nav avatar bubble
   useEffect(() => {
     if (!isAuthenticated) { setAvatarUrl(null); return; }
     api.profile.me()
@@ -175,7 +171,6 @@ export function SteamiNav() {
     return () => { if (notifPollerRef.current) clearInterval(notifPollerRef.current); };
   }, [fetchNotifications]);
 
-  // Close notification panel on outside click / Escape
   useEffect(() => {
     if (!notifOpen) return;
     const onKey   = (e: KeyboardEvent) => { if (e.key === 'Escape') setNotifOpen(false); };
@@ -211,7 +206,6 @@ export function SteamiNav() {
     }
   };
 
-  // NEWSLETTER handlers ────────────────────────────────────────────────────────
   const openSubscribeModal = () => {
     setNlMode('subscribe');
     setNlOpen(true);
@@ -258,10 +252,11 @@ export function SteamiNav() {
           boxShadow: isLight ? '0 1px 24px rgba(147, 197, 253, 0.15)' : '0 1px 32px rgba(0,0,0,0.4)',
         }}
       >
-        <Link 
-          to="/" 
-          onClick={(e) => { if (location.pathname === '/') e.preventDefault(); }}
+        {/* ── STEAMI logo — always navigates to landing page "/" ── */}
+        <Link
+          to="/"
           className="font-mono text-[18px] sm:text-[20px] font-bold tracking-wider group shrink-0"
+          aria-label="STEAMI — Go to homepage"
         >
           <motion.span
             className="text-steami-gold inline-block drop-shadow-sm group-hover:drop-shadow-[0_0_8px_rgba(232,184,75,0.4)] transition-all duration-200"
@@ -306,7 +301,7 @@ export function SteamiNav() {
 
         <div className="ml-auto flex items-center gap-4">
 
-          {/* NEWSLETTER ── Desktop Subscribe button */}
+          {/* NEWSLETTER — Desktop Subscribe button */}
           <button
             onClick={openSubscribeModal}
             title="Subscribe to newsletter"
@@ -432,7 +427,6 @@ export function SteamiNav() {
                                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isLight ? 'rgba(0,217,255,0.04)' : 'rgba(0,217,255,0.05)'; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                               >
-                                {/* Thumbnail / icon */}
                                 <div
                                   className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden mt-0.5"
                                   style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}30` }}
@@ -445,7 +439,6 @@ export function SteamiNav() {
                                   )}
                                 </div>
 
-                                {/* Text */}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5 mb-0.5">
                                     <span className="font-mono text-[8px] tracking-widest uppercase font-semibold" style={{ color: meta.color }}>
@@ -478,7 +471,6 @@ export function SteamiNav() {
                     )}
                   </div>
 
-                  {/* Footer */}
                   {notifItems.length > 0 && (
                     <div className="px-4 py-2.5 flex items-center justify-center border-t"
                          style={{ borderColor: isLight ? 'rgba(147,197,253,0.18)' : 'rgba(99,179,237,0.08)' }}>
@@ -535,7 +527,6 @@ export function SteamiNav() {
           <div className="hidden md:flex items-center relative">
             {isAuthenticated && user ? (
               <div className="relative">
-                {/* Trigger button */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -543,7 +534,6 @@ export function SteamiNav() {
                   className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-200"
                   style={btnStyle}
                 >
-                  {/* Avatar bubble */}
                   <div className="w-6 h-6 rounded-full overflow-hidden ring-1 ring-steami-cyan/30 shrink-0">
                     {avatarUrl ? (
                       <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
@@ -561,7 +551,6 @@ export function SteamiNav() {
                   <ChevronDown className="w-3 h-3 text-muted-foreground" />
                 </motion.button>
 
-                {/* Dropdown */}
                 <AnimatePresence>
                   {userMenuOpen && (
                     <motion.div
@@ -577,7 +566,6 @@ export function SteamiNav() {
                         boxShadow: isLight ? '0 12px 40px rgba(147,197,253,0.2)' : '0 12px 40px rgba(0,0,0,0.5)',
                       }}
                     >
-                      {/* User info header */}
                       <div className="px-4 py-2.5 border-b" style={menuItemStyle}>
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-steami-cyan/30 shrink-0">
@@ -598,7 +586,6 @@ export function SteamiNav() {
                         </div>
                       </div>
 
-                      {/* Profile link */}
                       <Link
                         to="/profile"
                         onClick={() => setUserMenuOpen(false)}
@@ -607,10 +594,8 @@ export function SteamiNav() {
                         <User className="w-3.5 h-3.5" /> My Profile
                       </Link>
 
-                      {/* Divider */}
                       <div className="my-1 border-t" style={menuItemStyle} />
 
-                      {/* Sign out */}
                       <button
                         onClick={() => { logout(); setUserMenuOpen(false); }}
                         className="w-full text-left px-4 py-2.5 flex items-center gap-2 font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-red-400 hover:bg-red-400/5 transition-colors"
@@ -707,6 +692,23 @@ export function SteamiNav() {
 
               {/* Nav links */}
               <div className="flex flex-col gap-1">
+                {/* Home link — only visible in mobile menu, points to "/" */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.08, duration: 0.3 }}
+                >
+                  <Link
+                    to="/"
+                    onClick={closeMenu}
+                    className={`block font-mono text-[15px] sm:text-[17px] tracking-[0.08em] sm:tracking-[0.12em] uppercase py-2.5 px-3 rounded-lg transition-colors break-words ${
+                      location.pathname === '/' ? 'text-steami-cyan bg-accent/10' : 'text-foreground/70 hover:text-foreground hover:bg-accent/5'
+                    }`}
+                  >
+                    HOME
+                  </Link>
+                </motion.div>
+
                 {navLinks.map((link, i) => {
                   const isActive = location.pathname === link.path;
                   return (
@@ -714,15 +716,13 @@ export function SteamiNav() {
                       key={link.path}
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.08 + i * 0.06, duration: 0.3 }}
+                      transition={{ delay: 0.14 + i * 0.06, duration: 0.3 }}
                     >
                       <Link
                         to={link.path}
-                        onClick={(e) => { 
-                          if (isActive) {
-                            e.preventDefault();
-                          }
-                          closeMenu(); 
+                        onClick={(e) => {
+                          if (isActive) e.preventDefault();
+                          closeMenu();
                         }}
                         className={`block font-mono text-[15px] sm:text-[17px] tracking-[0.08em] sm:tracking-[0.12em] uppercase py-2.5 px-3 rounded-lg transition-colors break-words ${
                           isActive ? 'text-steami-cyan bg-accent/10' : 'text-foreground/70 hover:text-foreground hover:bg-accent/5'
@@ -739,7 +739,7 @@ export function SteamiNav() {
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.08 + navLinks.length * 0.06, duration: 0.3 }}
+                    transition={{ delay: 0.14 + navLinks.length * 0.06, duration: 0.3 }}
                   >
                     <Link
                       to="/profile"
@@ -776,7 +776,6 @@ export function SteamiNav() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, duration: 0.3 }}
               >
-                {/* Auth actions */}
                 {isAuthenticated && user ? (
                   <button
                     onClick={() => { logout(); closeMenu(); }}
@@ -816,7 +815,6 @@ export function SteamiNav() {
                   {isLight ? 'DARK MODE' : 'LIGHT MODE'}
                 </button>
 
-                {/* NEWSLETTER ── Mobile Subscribe button (was hidden/aria-hidden in old file) */}
                 <button
                   onClick={openSubscribeModal}
                   className="w-full font-mono text-[11px] tracking-wider uppercase px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2"
@@ -838,7 +836,6 @@ export function SteamiNav() {
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={handleAuthSuccess} />
       <OnboardingModal open={onboardOpen} onClose={() => setOnboardOpen(false)} />
 
-      {/* NEWSLETTER modal */}
       <NewsletterModal
         mode={nlOpen ? nlMode : null}
         initialEmail={nlPopup.email}

@@ -15,9 +15,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        mono: ["'VT323'", "monospace"],
-        serif: ["'VT323'", "monospace"],
-        sans: ["'VT323'", "monospace"],
+        mono: ["'IBM Plex Mono'", "monospace"],
+        serif: ["'Playfair Display'", "Georgia", "serif"],
+        sans: ["'IBM Plex Sans'", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

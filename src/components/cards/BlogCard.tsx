@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CardSvgVisual } from '@/components/CardSvgVisual';
 import { useThemeStore } from '@/stores/theme-store';
-import { cn } from '@/lib/utils';
 
 interface BlogCardProps {
   post: any;
@@ -13,7 +12,7 @@ export const BlogCard = ({ post, coverImage, authorAvatar }: BlogCardProps) => {
   const isLight = useThemeStore((s) => s.theme === 'light');
 
   return (
-    <Link to={`/blog/${post.id}`} className={cn("glass-card steami-hover-card flex flex-col h-full group", isLight ? "bg-white/40 border-zinc-200/50" : "")}>
+    <Link to={`/blog/${post.id}`} className="glass-card flex flex-col h-full overflow-hidden group">
       <div className="relative h-48 overflow-hidden">
         <img
           src={coverImage}
