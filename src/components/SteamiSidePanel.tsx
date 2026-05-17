@@ -37,14 +37,31 @@ const pickFirst = (...values: any[]) => values.find((value) => value !== undefin
 
 const getInsightPayload = (item: any) => item.insight_payload || item.ai_insight || item.insight || {};
 
-const makeInsightItem = (base: any, articleId: string, raw?: any) => ({
-  ...(base || {}),
-  id: articleId,
-  article_id: articleId,
-  insight_payload: raw ?? base?.insight_payload ?? base?.ai_insight ?? base?.insight,
-  ai_insight: raw?.ai_insight || raw?.insight || raw || base?.ai_insight || base?.insight,
-  has_insight: true,
-});
+const makeInsightItem = (base: any, articleId: string, raw?: any) => {
+  // Unwrap: raw may be a full insight record { title, ai_insight: {...}, source, ... }
+  // or already the flat ai_insight payload. Normalise so insight_payload is always
+  // the flat object that InsightPopup reads (.summary, .key_points, .domain …).
+  const unwrapped = (raw && typeof raw === 'object')
+    ? (raw.ai_insight || raw.insight || raw)
+    : raw;
+  return {
+    ...(base || {}),
+    id: articleId,
+    article_id: articleId,
+    // Surface top-level fields from the raw insight record onto the merged item
+    ...(raw && typeof raw === 'object' ? {
+      title:        raw.title        || (base || {}).title,
+      source:       raw.source       || (base || {}).source,
+      article_url:  raw.article_url  || (base || {}).article_url,
+      url:          raw.url          || (base || {}).url,
+      published_at: raw.published_at || (base || {}).published_at,
+      topic:        raw.topic        || (base || {}).topic,
+    } : {}),
+    insight_payload: unwrapped ?? (base || {}).insight_payload ?? (base || {}).ai_insight ?? (base || {}).insight,
+    ai_insight:      unwrapped ?? (base || {}).ai_insight ?? (base || {}).insight,
+    has_insight: true,
+  };
+};
 
 // ─── sentiment helpers ────────────────────────────────────────────────────────
 
@@ -386,8 +403,20 @@ export function SteamiSidePanel() {
         const articleInsight = article?.ai_insight || article?.insight;
 
         if (insightResult.status === 'fulfilled') {
-          setOpenInsight(makeInsightItem(article, insightId, insightResult.value));
-          logPopupEvent('ai_insight', insightId, article?.title);
+          const insightRecord: any = insightResult.value;
+          // Merge insight record's top-level metadata (title, source, article_url…) with article
+          const merged = {
+            id: insightId,
+            title: insightRecord?.title || article?.title || 'AI Insight',
+            source: insightRecord?.source || article?.source,
+            article_url: insightRecord?.article_url || article?.article_url,
+            url: insightRecord?.url || article?.url,
+            published_at: insightRecord?.published_at || article?.published_at,
+            topic: insightRecord?.topic || article?.topic,
+            ...article,
+          };
+          setOpenInsight(makeInsightItem(merged, insightId, insightRecord));
+          logPopupEvent('ai_insight', insightId, merged.title);
           return;
         }
 

@@ -26,7 +26,7 @@
  *   and /black-hole/textures/* are all reachable.
  */
 
-import { Suspense, useEffect, useRef, useState, useCallback } from 'react';
+import { Suspense, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls, Stars, Environment } from '@react-three/drei';
@@ -40,6 +40,7 @@ import { FeatureShowcase }    from '@/components/landing/FeatureShowcase';
 import { WorkflowSection }    from '@/components/home/workflow/WorkflowSection';
 import { BrandSection }       from '@/components/landing/BrandSection';
 import { FinalCTA }           from '@/components/landing/FinalCTA';
+import { PopupLinkPill }      from '@/components/PopupLinkPill';
 import { SteamiNav }          from '@/components/SteamiNav';
 import { Footer }             from '@/components/Footer';
 import { StarBackground }     from '@/components/StarBackground';
@@ -54,29 +55,32 @@ import {
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types
+// Types — matches GET /api/insights response
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface ApiExplainer {
-  id:          string;
-  title:       string;
-  subtitle:    string;
-  field:       string;
-  badgeColor:  string;
-  readTime?:   string;
-  image?:      string;
-  keyInsights: unknown[];
-  content:     unknown[];
-  author?:     string;
+interface AiInsight {
+  summary?:          string;
+  key_points?:       string[];
+  sentiment?:        string;
+  sentiment_label?:  'good_news' | 'bad_news' | 'neutral_news';
+  emoji?:            string;
+  confidence?:       number;
+  tags?:             string[];
+  domain?:           string;
+  reading_time_min?: number;
+  article_url?:      string;
 }
 
-interface ApiExplainersResponse {
-  items:  ApiExplainer[];
-  total:  number;
-  page:   number;
-  limit:  number;
-  pages:  number;
-  fields: string[];
+interface ApiInsightItem {
+  id:           string;
+  article_id:   string;
+  title:        string;
+  topic?:       string;
+  source?:      string;
+  article_url?: string;
+  matched_domains?: string[];
+  ai_insight?:  AiInsight;
+  created_at?:  string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,26 +202,35 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Explorer Section — API-powered
+// Sentiment config
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SENTIMENT_CONFIG = {
+  good_news:    { label: 'Good News', bg: 'rgba(16,185,129,0.15)', text: '#6ee7b7', dot: '#10b981' },
+  bad_news:     { label: 'Bad News',  bg: 'rgba(239,68,68,0.15)',  text: '#fca5a5', dot: '#ef4444' },
+  neutral_news: { label: 'Neutral',   bg: 'rgba(99,102,241,0.15)', text: '#a5b4fc', dot: '#6366f1' },
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intelligence Archive Section — GET /api/insights
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 8;
 
-function ExplorerSection({ isLight }: { isLight: boolean }) {
+function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
   const navigate = useNavigate();
 
-  const [items,       setItems]       = useState<ApiExplainer[]>([]);
-  const [fields,      setFields]      = useState<string[]>(['ALL']);
-  const [activeField, setActiveField] = useState('ALL');
+  const [items,       setItems]       = useState<ApiInsightItem[]>([]);
+  const [allItems,    setAllItems]    = useState<ApiInsightItem[]>([]);
+  const [domains,     setDomains]     = useState<string[]>(['ALL']);
+  const [activeDomain, setActiveDomain] = useState('ALL');
   const [search,      setSearch]      = useState('');
   const [page,        setPage]        = useState(1);
-  const [totalPages,  setTotalPages]  = useState(1);
-  const [totalItems,  setTotalItems]  = useState(0);
+  const [hasMore,     setHasMore]     = useState(false);
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error,       setError]       = useState<string | null>(null);
 
-  // Debounce search
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -227,56 +240,63 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
   }, [search]);
 
-  // Reset to page 1 when filter/search changes
+  // Load all insights once, filter client-side (API doesn't support filtering)
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    api.insights
+      .list({ limit: 100 } as any)
+      .then((data: any) => {
+        const list: ApiInsightItem[] = Array.isArray(data?.insights) ? data.insights
+          : Array.isArray(data) ? data : [];
+        setAllItems(list);
+        // Collect unique domains
+        const domainSet = new Set<string>();
+        list.forEach((item) => {
+          const d = item.ai_insight?.domain || item.topic;
+          if (d) domainSet.add(d);
+        });
+        setDomains(['ALL', ...Array.from(domainSet).sort()]);
+      })
+      .catch((err: any) => setError(err?.message ?? 'Failed to load insights.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Filter + paginate client-side
+  const filtered = useMemo(() => {
+    let list = allItems;
+    if (activeDomain !== 'ALL') {
+      list = list.filter((item) =>
+        item.ai_insight?.domain === activeDomain || item.topic === activeDomain
+      );
+    }
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
+      list = list.filter((item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.source?.toLowerCase().includes(q) ||
+        item.ai_insight?.summary?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [allItems, activeDomain, debouncedSearch]);
+
   useEffect(() => {
     setPage(1);
-    setItems([]);
-  }, [activeField, debouncedSearch]);
+  }, [activeDomain, debouncedSearch]);
 
-  // Fetch from API
-  const fetchPage = useCallback(async (pg: number, append: boolean) => {
-    append ? setLoadingMore(true) : setLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string | number> = {
-        page:  pg,
-        limit: PAGE_SIZE,
-      };
-      if (activeField !== 'ALL') params.field  = activeField;
-      if (debouncedSearch)       params.search = debouncedSearch;
-
-      // Uses the api helper from @/lib/api — adjust the call if your api
-      // helper uses a different method signature.
-      const data = await api.explainers.list(params) as ApiExplainersResponse;
-
-      setItems(prev => append ? [...prev, ...data.items] : data.items);
-      setTotalPages(data.pages   ?? 1);
-      setTotalItems(data.total   ?? 0);
-
-      // Build field list from first full fetch
-      if (!append && data.fields?.length) {
-        setFields(['ALL', ...data.fields]);
-      }
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load explainers. Please try again.');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [activeField, debouncedSearch]);
-
-  useEffect(() => {
-    fetchPage(1, false);
-  }, [fetchPage]);
+  const displayed = filtered.slice(0, page * PAGE_SIZE);
 
   const handleLoadMore = () => {
-    const next = page + 1;
-    setPage(next);
-    fetchPage(next, true);
+    setLoadingMore(true);
+    setTimeout(() => {
+      setPage((p) => p + 1);
+      setLoadingMore(false);
+    }, 200);
   };
 
-  const handleCardClick = (id: string) => {
-    navigate(`/?open=${id}`);
+  const handleCardClick = (item: ApiInsightItem) => {
+    navigate(`/?insight=${item.article_id}`);
   };
 
   return (
@@ -294,19 +314,19 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
           <div>
             <h2 className="steami-heading text-3xl md:text-4xl mb-2 flex items-center gap-3">
               <Layers className="w-7 h-7 opacity-60" />
-              Explore Intelligence
+              AI Insights
             </h2>
             <p className="text-[16px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              Browse our live archive of STEM explainers — updated from the backend in real-time.
-              {totalItems > 0 && (
+              AI-generated insights from the latest STEM news — updated in real-time.
+              {filtered.length > 0 && (
                 <span className="ml-2 font-mono text-steami-cyan text-[13px]">
-                  {totalItems} total
+                  {filtered.length} insights
                 </span>
               )}
             </p>
           </div>
           <Link
-            to="/explore"
+            to="/insights"
             className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-steami-cyan hover:text-steami-cyan/80 transition-colors shrink-0"
           >
             View All <ArrowRight className="w-3.5 h-3.5" />
@@ -322,13 +342,13 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
         viewport={{ once: true }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        {/* Search input */}
+        {/* Search */}
         <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search explainers…"
+            placeholder="Search insights…"
             className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[14px] font-medium text-foreground placeholder:text-muted-foreground/70 outline-none transition focus:ring-2 focus:ring-steami-cyan/40"
             style={{
               background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8,18,42,0.96)',
@@ -338,38 +358,35 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
           />
         </div>
 
-        {/* Field pills */}
+        {/* Domain pills */}
         <div className="flex flex-wrap gap-1.5">
-          {fields.map((f) => (
+          {domains.map((d) => (
             <button
-              key={f}
-              onClick={() => setActiveField(f)}
+              key={d}
+              onClick={() => setActiveDomain(d)}
               className="px-3 py-1.5 rounded-md text-[13px] font-mono tracking-wider uppercase transition-all duration-200"
               style={{
-                background:
-                  activeField === f
-                    ? (isLight ? 'rgba(59,130,246,0.1)' : 'rgba(99,179,237,0.12)')
-                    : (isLight ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.03)'),
-                border: `1px solid ${
-                  activeField === f
-                    ? (isLight ? 'rgba(59,130,246,0.3)' : 'rgba(99,179,237,0.25)')
-                    : (isLight ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.06)')
-                }`,
-                color: activeField === f ? 'hsl(var(--steami-cyan))' : 'hsl(var(--muted-foreground))',
+                background: activeDomain === d
+                  ? (isLight ? 'rgba(59,130,246,0.1)' : 'rgba(99,179,237,0.12)')
+                  : (isLight ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.03)'),
+                border: `1px solid ${activeDomain === d
+                  ? (isLight ? 'rgba(59,130,246,0.3)' : 'rgba(99,179,237,0.25)')
+                  : (isLight ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.06)')}`,
+                color: activeDomain === d ? 'hsl(var(--steami-cyan))' : 'hsl(var(--muted-foreground))',
               }}
             >
-              {f}
+              {d}
             </button>
           ))}
         </div>
       </motion.div>
 
-      {/* Error state */}
+      {/* Error */}
       {error && (
         <div className="flex flex-col items-center justify-center py-16 gap-4">
           <p className="font-mono text-[13px] text-red-400">{error}</p>
           <button
-            onClick={() => fetchPage(1, false)}
+            onClick={() => window.location.reload()}
             className="font-mono text-[11px] uppercase tracking-wider px-4 py-2 rounded-lg border border-steami-cyan/30 text-steami-cyan hover:bg-steami-cyan/10 transition-colors"
           >
             Retry
@@ -381,7 +398,7 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
       {loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-            <ExplainerCardSkeleton key={i} isLight={isLight} />
+            <InsightCardSkeleton key={i} isLight={isLight} />
           ))}
         </div>
       )}
@@ -389,10 +406,10 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
       {/* Cards grid */}
       {!loading && !error && (
         <>
-          {items.length === 0 ? (
+          {displayed.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
               <BookOpen className="w-10 h-10 opacity-20" />
-              <p className="font-mono text-[13px] tracking-wider">No explainers found</p>
+              <p className="font-mono text-[13px] tracking-wider">No insights found</p>
             </div>
           ) : (
             <motion.div
@@ -401,17 +418,17 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
               whileInView="visible"
               viewport={{ once: true, margin: '-60px' }}
               variants={{
-                hidden:  {},
+                hidden: {},
                 visible: { transition: { staggerChildren: 0.07 } },
               }}
             >
-              {items.map((exp, idx) => (
-                <ExplainerCard
-                  key={exp.id}
-                  exp={exp}
+              {displayed.map((item, idx) => (
+                <InsightCard
+                  key={item.article_id}
+                  item={item}
                   idx={idx}
                   isLight={isLight}
-                  onClick={() => handleCardClick(exp.id)}
+                  onClick={() => handleCardClick(item)}
                 />
               ))}
             </motion.div>
@@ -419,7 +436,7 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
 
           {/* Load More / View All */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            {page < totalPages && (
+            {displayed.length < filtered.length && (
               <button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
@@ -436,9 +453,8 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
                 }
               </button>
             )}
-
             <Link
-              to="/explore"
+              to="/insights"
               className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all duration-200"
               style={{
                 border: isLight ? '1px solid rgba(0,217,255,0.35)' : '1px solid rgba(0,217,255,0.2)',
@@ -456,20 +472,24 @@ function ExplorerSection({ isLight }: { isLight: boolean }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Explainer Card
+// Insight Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ExplainerCard({
-  exp, idx, isLight, onClick,
+function InsightCard({
+  item, idx, isLight, onClick,
 }: {
-  exp: ApiExplainer; idx: number; isLight: boolean; onClick: () => void;
+  item: ApiInsightItem; idx: number; isLight: boolean; onClick: () => void;
 }) {
   const cardVariants = {
     hidden:  { opacity: 0, y: 24 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] as [number,number,number,number] } },
   };
 
-  const badgeColor = exp.badgeColor ?? 'cyan';
+  const insight = item.ai_insight;
+  const sentKey = insight?.sentiment_label ?? 'neutral_news';
+  const sentCfg = SENTIMENT_CONFIG[sentKey] ?? SENTIMENT_CONFIG.neutral_news;
+  const domain  = insight?.domain || item.topic || (item.matched_domains?.[0] ?? '');
+  const emoji   = insight?.emoji ?? '';
 
   return (
     <motion.div
@@ -483,45 +503,24 @@ function ExplainerCard({
         backdropFilter: 'blur(12px)',
       }}
     >
-      {/* Top accent bar */}
-      <div
-        className="h-[2px] w-full shrink-0"
-        style={{
-          background: `linear-gradient(90deg, hsl(var(--steami-${badgeColor})) 0%, transparent 100%)`,
-        }}
-      />
+      {/* Top accent bar — sentiment colour */}
+      <div className="h-[2px] w-full shrink-0" style={{ background: `linear-gradient(90deg, ${sentCfg.dot} 0%, transparent 100%)` }} />
 
-      {/* Cover image */}
-      {exp.image ? (
-        <div className="relative overflow-hidden" style={{ height: 148 }}>
-          <img
-            src={exp.image}
-            alt={exp.title}
-            loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: isLight
-                ? 'linear-gradient(to top, rgba(255,255,255,0.4) 0%, transparent 60%)'
-                : 'linear-gradient(to top, rgba(8,16,38,0.6) 0%, transparent 60%)',
-            }}
-          />
-        </div>
-      ) : (
-        <div
-          className="flex items-center justify-center"
-          style={{
-            height: 148,
-            background: isLight
-              ? `linear-gradient(135deg, rgba(147,197,253,0.12) 0%, rgba(167,139,250,0.08) 100%)`
-              : `linear-gradient(135deg, rgba(0,217,255,0.08) 0%, rgba(255,78,240,0.06) 100%)`,
-          }}
-        >
-          <BookOpen className="w-10 h-10 opacity-10" />
-        </div>
-      )}
+      {/* Emoji hero */}
+      <div
+        className="flex items-center justify-center"
+        style={{
+          height: 100,
+          background: isLight
+            ? 'linear-gradient(135deg, rgba(147,197,253,0.1) 0%, rgba(167,139,250,0.07) 100%)'
+            : 'linear-gradient(135deg, rgba(0,217,255,0.07) 0%, rgba(255,78,240,0.05) 100%)',
+        }}
+      >
+        {emoji
+          ? <span style={{ fontSize: 44 }} role="img">{emoji}</span>
+          : <BookOpen className="w-10 h-10 opacity-10" />
+        }
+      </div>
 
       {/* Divider */}
       <div
@@ -529,36 +528,65 @@ function ExplainerCard({
         style={{
           background: isLight
             ? 'linear-gradient(90deg, transparent, rgba(147,197,253,0.4), transparent)'
-            : `linear-gradient(90deg, transparent, hsl(var(--steami-${badgeColor}) / 0.2), transparent)`,
+            : `linear-gradient(90deg, transparent, ${sentCfg.dot}33, transparent)`,
         }}
       />
 
       {/* Content */}
       <div className="p-5 pt-4 flex-1 flex flex-col">
-        <div className="mb-3">
+        {/* Domain + sentiment badge */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {domain && (
+            <span className="steami-badge steami-badge-cyan text-[11px]">{domain}</span>
+          )}
           <span
-            className={`steami-badge steami-badge-${badgeColor} text-[11px] inline-block`}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-bold"
+            style={{ background: sentCfg.bg, color: sentCfg.text }}
           >
-            {exp.field}
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: sentCfg.dot }} />
+            {sentCfg.label}
           </span>
         </div>
 
-        <h3 className="font-serif text-[16px] font-extrabold mb-1.5 leading-snug text-foreground line-clamp-2">
-          {exp.title}
+        <h3 className="font-serif text-[15px] font-extrabold mb-1.5 leading-snug text-foreground line-clamp-2">
+          {item.title}
         </h3>
-        <p className="text-[13px] font-medium text-muted-foreground leading-relaxed line-clamp-3 mb-4 flex-1">
-          {exp.subtitle}
-        </p>
+
+        {insight?.summary && (
+          <p className="text-[12px] font-medium text-muted-foreground leading-relaxed line-clamp-3 mb-3 flex-1">
+            {insight.summary}
+          </p>
+        )}
+
+        {/* Key points preview */}
+        {insight?.key_points && insight.key_points.length > 0 && (
+          <ul className="space-y-1 mb-3">
+            {insight.key_points.slice(0, 2).map((pt, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                <span className="text-steami-cyan mt-0.5 shrink-0">›</span>
+                <span className="line-clamp-1">{pt}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-foreground/5 mt-auto">
-          <span className="text-[10px] font-mono text-muted-foreground/55 tracking-wider">
-            {exp.keyInsights.length} INSIGHTS · {exp.content.length} SLIDES
-            {exp.readTime && ` · ${exp.readTime}`}
-          </span>
-          <span className="text-[10px] font-mono text-steami-cyan tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-            Read →
-          </span>
+          <div className="flex items-center gap-2">
+            {item.source && (
+              <span className="font-mono text-[10px] text-muted-foreground/55 tracking-wider truncate max-w-[90px]">
+                {item.source}
+              </span>
+            )}
+            {insight?.reading_time_min && (
+              <span className="font-mono text-[10px] text-muted-foreground/40">
+                {insight.reading_time_min}m
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <PopupLinkPill type="insight" id={item.article_id} title={item.title} />
+          </div>
         </div>
       </div>
     </motion.div>
@@ -569,7 +597,7 @@ function ExplainerCard({
 // Skeleton card shown while loading
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ExplainerCardSkeleton({ isLight }: { isLight: boolean }) {
+function InsightCardSkeleton({ isLight }: { isLight: boolean }) {
   return (
     <div
       className="rounded-xl overflow-hidden animate-pulse flex flex-col"
@@ -580,13 +608,7 @@ function ExplainerCardSkeleton({ isLight }: { isLight: boolean }) {
       }}
     >
       <div className="h-[2px] w-full" style={{ background: isLight ? 'rgba(147,197,253,0.3)' : 'rgba(99,179,237,0.12)' }} />
-      <div
-        className="w-full"
-        style={{
-          height: 148,
-          background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)',
-        }}
-      />
+      <div className="w-full" style={{ height: 100, background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)' }} />
       <div className="p-5 flex flex-col gap-3">
         <div className="h-3 w-16 rounded-full" style={{ background: isLight ? 'rgba(147,197,253,0.4)' : 'rgba(99,179,237,0.15)' }} />
         <div className="h-4 w-4/5 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)' }} />
@@ -644,8 +666,8 @@ const HomePage = () => {
             {/* 5. INTELLIGENCE MAPS SECTION */}
             <IntelligenceSystems />
 
-            {/* 6. EXPLORER SECTION — backend API */}
-            <ExplorerSection isLight={isLight} />
+            {/* 6. INTELLIGENCE ARCHIVE — AI Insights API */}
+            <IntelligenceArchiveSection isLight={isLight} />
 
             {/* 7. FEATURE SHOWCASE SECTION */}
             <FeatureShowcase />
