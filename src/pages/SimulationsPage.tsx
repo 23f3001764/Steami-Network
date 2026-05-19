@@ -143,23 +143,34 @@ function BlochSceneInline({ autoMode, theta, phi, bitShape }: BlochProps) {
   );
 }
 
-function ThreeBodySceneInline({ autoMode = true }: { autoMode?: boolean }) {
+function ThreeBodySceneInline({
+  autoMode = true, speed = 1,
+  mass1 = 1, mass2 = 1, mass3 = 1.5,
+  body1Shape = 'sphere' as ShapeId,
+  body2Shape = 'sphere' as ShapeId,
+  body3Shape = 'sphere' as ShapeId,
+}: {
+  autoMode?: boolean; speed?: number;
+  mass1?: number; mass2?: number; mass3?: number;
+  body1Shape?: ShapeId; body2Shape?: ShapeId; body3Shape?: ShapeId;
+}) {
   const G = 0.8;
   const bodiesRef = useRef([
-    { pos: new THREE.Vector3(-1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: 1 },
-    { pos: new THREE.Vector3( 1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: 1 },
-    { pos: new THREE.Vector3( 0,  0,0), vel: new THREE.Vector3(-0.694,-1.064,0), mass: 1.5 },
+    { pos: new THREE.Vector3(-1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: mass1 },
+    { pos: new THREE.Vector3( 1.2,0,0), vel: new THREE.Vector3(0.347, 0.532,0),  mass: mass2 },
+    { pos: new THREE.Vector3( 0,  0,0), vel: new THREE.Vector3(-0.694,-1.064,0), mass: mass3 },
   ]);
   const m0 = useRef<THREE.Mesh>(null!);
   const m1 = useRef<THREE.Mesh>(null!);
   const m2 = useRef<THREE.Mesh>(null!);
   const meshRefs = [m0, m1, m2];
-  const COLORS = ['#63b3ed','#f5d07a','#fb923c'];
+  const COLORS   = ['#63b3ed','#f5d07a','#fb923c'];
+  const shapes   = [body1Shape, body2Shape, body3Shape];
 
   useFrame(() => {
     if (!autoMode) return;
     const bs = bodiesRef.current;
-    const dt = 0.006;
+    const dt = 0.006 * speed;
     const forces = bs.map(() => new THREE.Vector3());
     for (let i = 0; i < 3; i++) {
       for (let j = i+1; j < 3; j++) {
@@ -181,8 +192,8 @@ function ThreeBodySceneInline({ autoMode = true }: { autoMode?: boolean }) {
       <pointLight position={[0,0,4]} intensity={1.5} />
       {COLORS.map((color, i) => (
         <Trail key={i} width={0.8} length={40} color={color} attenuation={(t)=>t*t}>
-          <mesh ref={meshRefs[i]}>
-            <sphereGeometry args={[0.18,12,12]} />
+          <mesh ref={meshRefs[i]} key={shapes[i]}>
+            <primitive object={makeGeoInline(shapes[i], 0.18)} attach="geometry" />
             <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
           </mesh>
         </Trail>
@@ -237,7 +248,7 @@ function WaveSceneInline({ autoMode, waveMode, amplitude, frequency }: WaveProps
   );
 }
 
-function OrbitsSceneInline({ autoMode = true }: { autoMode?: boolean }) {
+function OrbitsSceneInline({ autoMode = true, orbitSpeed = 1 }: { autoMode?: boolean; orbitSpeed?: number }) {
   const planets = [
     { r:1.8, speed:1.5, size:0.12, color:'#63b3ed' },
     { r:2.8, speed:0.9, size:0.18, color:'#f5d07a' },
@@ -250,7 +261,7 @@ function OrbitsSceneInline({ autoMode = true }: { autoMode?: boolean }) {
 
   useFrame(({ clock }) => {
     if (!autoMode) return;
-    const t = clock.getElapsedTime();
+    const t = clock.getElapsedTime() * orbitSpeed;
     planets.forEach((p,i) => {
       pRefs[i].current?.position.set(Math.cos(t*p.speed)*p.r, 0, Math.sin(t*p.speed)*p.r);
     });
@@ -297,13 +308,25 @@ const SHAPES_LIST: { id: ShapeId; label: string; icon: string }[] = [
  * Renders a live R3F Canvas + auto/manual toggle + per-preset controls.
  */
 function LiveSimWrapper({ componentId }: { componentId: string }) {
-  const [autoMode,  setAutoMode]  = useState(true);
-  const [theta,     setTheta]     = useState(45);
-  const [phi,       setPhi]       = useState(0);
-  const [bitShape,  setBitShape]  = useState<ShapeId>('cube');
-  const [waveMode,  setWaveMode]  = useState<'ripple'|'standing'|'interference'|'gaussian'>('ripple');
-  const [waveAmp,   setWaveAmp]   = useState(1.0);
-  const [waveFreq,  setWaveFreq]  = useState(2.0);
+  const [autoMode,    setAutoMode]    = useState(true);
+  // Bloch
+  const [theta,       setTheta]       = useState(45);
+  const [phi,         setPhi]         = useState(0);
+  const [bitShape,    setBitShape]    = useState<ShapeId>('cube');
+  // Wave
+  const [waveMode,    setWaveMode]    = useState<'ripple'|'standing'|'interference'|'gaussian'>('ripple');
+  const [waveAmp,     setWaveAmp]     = useState(1.0);
+  const [waveFreq,    setWaveFreq]    = useState(2.0);
+  // Three-body
+  const [tbSpeed,     setTbSpeed]     = useState(1.0);
+  const [tbMass1,     setTbMass1]     = useState(1.0);
+  const [tbMass2,     setTbMass2]     = useState(1.0);
+  const [tbMass3,     setTbMass3]     = useState(1.5);
+  const [tbShape1,    setTbShape1]    = useState<ShapeId>('sphere');
+  const [tbShape2,    setTbShape2]    = useState<ShapeId>('sphere');
+  const [tbShape3,    setTbShape3]    = useState<ShapeId>('sphere');
+  // Orbits
+  const [orbitSpeed,  setOrbitSpeed]  = useState(1.0);
 
   const canvasH = 420;
   const bgStyle: React.CSSProperties = {
@@ -321,11 +344,13 @@ function LiveSimWrapper({ componentId }: { componentId: string }) {
           />
         );
       case 'threebody':
-        return <ThreeBodySceneInline autoMode={autoMode} />;
+        return <ThreeBodySceneInline autoMode={autoMode} speed={tbSpeed}
+          mass1={tbMass1} mass2={tbMass2} mass3={tbMass3}
+          body1Shape={tbShape1} body2Shape={tbShape2} body3Shape={tbShape3} />;
       case 'wave':
         return <WaveSceneInline autoMode={autoMode} waveMode={waveMode} amplitude={waveAmp} frequency={waveFreq} />;
       case 'orbits':
-        return <OrbitsSceneInline autoMode={autoMode} />;
+        return <OrbitsSceneInline autoMode={autoMode} orbitSpeed={orbitSpeed} />;
       default:
         return null;
     }
@@ -453,6 +478,88 @@ function LiveSimWrapper({ componentId }: { componentId: string }) {
                 onChange={e => setWaveFreq(+e.target.value)}
                 className="flex-1 accent-[#a78bfa]" />
               <span className="font-mono text-[10px] text-steami-cyan w-8 text-right">{waveFreq.toFixed(1)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Three-body controls */}
+        {componentId === 'threebody' && (
+          <div className="space-y-3 pt-1 border-t border-white/5">
+            <p className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">Three-Body Parameters</p>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-14">Speed</span>
+              <input type="range" min="0.1" max="4" step="0.1" value={tbSpeed}
+                onChange={e => setTbSpeed(+e.target.value)}
+                className="flex-1 accent-[#63b3ed]" />
+              <span className="font-mono text-[10px] text-steami-cyan w-10 text-right">{tbSpeed.toFixed(1)}×</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-14">Mass 1</span>
+              <input type="range" min="0.5" max="4" step="0.1" value={tbMass1}
+                onChange={e => setTbMass1(+e.target.value)}
+                className="flex-1 accent-[#63b3ed]" />
+              <span className="font-mono text-[10px] text-[#63b3ed] w-10 text-right">{tbMass1.toFixed(1)}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-14">Mass 2</span>
+              <input type="range" min="0.5" max="4" step="0.1" value={tbMass2}
+                onChange={e => setTbMass2(+e.target.value)}
+                className="flex-1 accent-[#f5d07a]" />
+              <span className="font-mono text-[10px] text-[#f5d07a] w-10 text-right">{tbMass2.toFixed(1)}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-14">Mass 3</span>
+              <input type="range" min="0.5" max="4" step="0.1" value={tbMass3}
+                onChange={e => setTbMass3(+e.target.value)}
+                className="flex-1 accent-[#fb923c]" />
+              <span className="font-mono text-[10px] text-[#fb923c] w-10 text-right">{tbMass3.toFixed(1)}</span>
+            </div>
+            <div>
+              <p className="font-mono text-[10px] text-muted-foreground uppercase mb-1">Body 1 Shape</p>
+              <div className="flex flex-wrap gap-1">
+                {SHAPES_LIST.map(s => (
+                  <button key={s.id} onClick={() => setTbShape1(s.id)}
+                    className={`font-mono text-[10px] px-2 py-0.5 rounded border transition-all ${tbShape1===s.id ? 'border-[#63b3ed]/60 bg-[#63b3ed]/10 text-[#63b3ed]' : 'border-white/10 text-muted-foreground hover:border-white/20'}`}>
+                    {s.icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="font-mono text-[10px] text-muted-foreground uppercase mb-1">Body 2 Shape</p>
+              <div className="flex flex-wrap gap-1">
+                {SHAPES_LIST.map(s => (
+                  <button key={s.id} onClick={() => setTbShape2(s.id)}
+                    className={`font-mono text-[10px] px-2 py-0.5 rounded border transition-all ${tbShape2===s.id ? 'border-[#f5d07a]/60 bg-[#f5d07a]/10 text-[#f5d07a]' : 'border-white/10 text-muted-foreground hover:border-white/20'}`}>
+                    {s.icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="font-mono text-[10px] text-muted-foreground uppercase mb-1">Body 3 Shape</p>
+              <div className="flex flex-wrap gap-1">
+                {SHAPES_LIST.map(s => (
+                  <button key={s.id} onClick={() => setTbShape3(s.id)}
+                    className={`font-mono text-[10px] px-2 py-0.5 rounded border transition-all ${tbShape3===s.id ? 'border-[#fb923c]/60 bg-[#fb923c]/10 text-[#fb923c]' : 'border-white/10 text-muted-foreground hover:border-white/20'}`}>
+                    {s.icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Orbits controls */}
+        {componentId === 'orbits' && (
+          <div className="space-y-3 pt-1 border-t border-white/5">
+            <p className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">Orbital Parameters</p>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground w-20">Orbit Speed</span>
+              <input type="range" min="0.1" max="5" step="0.1" value={orbitSpeed}
+                onChange={e => setOrbitSpeed(+e.target.value)}
+                className="flex-1 accent-[#a78bfa]" />
+              <span className="font-mono text-[10px] text-[#a78bfa] w-10 text-right">{orbitSpeed.toFixed(1)}×</span>
             </div>
           </div>
         )}
