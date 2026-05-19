@@ -405,41 +405,24 @@ export default function ModerationPage() {
               {items.map((item,idx)=>(
                 <div key={item.id??item.uid??idx} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex flex-wrap items-start gap-3">
-                    {/* Simulation preview: live 3D canvas for known presets, snapshot fallback otherwise */}
+                    {/* Simulation preview: snapshot thumbnail or preset icon */}
                     {tab==='simulation'&&(()=>{
-                      const livePresets = ['bloch','wave','orbits','quantum','threebody'];
-                      const cid = item.component_id as string;
-                      if (livePresets.includes(cid)) {
-                        const scene = (() => {
-                          switch(cid) {
-                            case 'bloch': case 'quantum': return <BlochScene cfg={{...defaultConfig, speed:0.8}} />;
-                            case 'threebody': return <ThreeBodyScene cfg={defaultConfig} />;
-                            case 'wave': return <WaveScene cfg={defaultConfig} />;
-                            case 'orbits': return <OrbitsScene cfg={defaultConfig} />;
-                            default: return null;
-                          }
-                        })();
-                        return scene ? (
-                          <div className="w-20 h-14 rounded overflow-hidden flex-shrink-0 relative border border-white/10">
-                            <Canvas camera={{ position:[0,1.5,5], fov:55 }} style={{ width:'100%', height:'100%', background:'#03060f' }} gl={{ antialias:true }}>
-                              <Suspense fallback={null}>
-                                <ambientLight intensity={0.5} />
-                                <pointLight position={[5,5,5]} intensity={1.5} />
-                                {scene}
-                              </Suspense>
-                            </Canvas>
-                            <div className="absolute bottom-0.5 right-0.5 flex items-center gap-0.5 px-1 rounded" style={{background:'rgba(3,6,15,0.8)'}}>
-                              <span className="inline-block w-1 h-1 rounded-full bg-green-400 animate-pulse" />
-                              <span className="font-mono text-[7px] text-green-400">LIVE</span>
-                            </div>
-                          </div>
-                        ) : null;
-                      }
-                      // Fallback to static snapshot
                       if (item.snapshot_url) {
-                        return <img src={item.snapshot_url} alt={item.title} className="w-20 h-14 rounded object-cover flex-shrink-0 border border-white/10" />;
+                        return (
+                          <img src={item.snapshot_url} alt={item.title}
+                            className="w-20 h-14 rounded object-cover flex-shrink-0 border border-white/10" />
+                        );
                       }
-                      return null;
+                      const icons: Record<string,string> = {
+                        bloch:'⚛', quantum:'⚛', threebody:'🌌', wave:'〜', orbits:'🪐', blank:'◻'
+                      };
+                      const icon = icons[item.component_id as string] ?? '🔬';
+                      return (
+                        <div className="w-20 h-14 rounded flex-shrink-0 border border-white/10 flex items-center justify-center text-2xl"
+                          style={{background:'#03060f'}}>
+                          {icon}
+                        </div>
+                      );
                     })()}
                     <div className="min-w-0 flex-1">
                       <div className="font-serif text-[16px] font-bold">{item.title??item.id??`Record ${idx+1}`}</div>
