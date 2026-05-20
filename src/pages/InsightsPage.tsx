@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { RequireLogin } from '@/components/RequireLogin';
+import { useThemeStore } from '@/stores/theme-store';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -208,6 +209,7 @@ function InsightCard({ insight }: { insight: Insight }) {
 
 export default function InsightsPage() {
   const { isAuthenticated } = useAuthStore();
+  const isLight = useThemeStore((s) => s.theme === 'light');
 
   const [insights, setInsights]           = useState<Insight[]>([]);
   const [status, setStatus]               = useState<InsightStatus | null>(null);

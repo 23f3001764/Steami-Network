@@ -21,7 +21,7 @@ export const useThemeStore = create<ThemeState>((set) => {
     theme: initial,
     toggleTheme: () =>
       set((state) => {
-        const next = state.theme === 'dark' ? 'light' : 'dark';
+        const next = state.theme === 'light' ? 'dark' : 'light';
         localStorage.setItem('steami-theme', next);
         document.documentElement.setAttribute('data-theme', next);
         return { theme: next };
