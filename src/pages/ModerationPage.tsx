@@ -8,6 +8,111 @@ import { NewsletterTab } from '@/components/NewsletterTab';
 
 import { SimulationBuilderTab } from '@/components/SimulationBuilderTab';
 
+// ══════════════════════════════════════════════════════════════════════════════
+// INTELLIGENCE FORM — heading · value · color · direction symbol
+// ══════════════════════════════════════════════════════════════════════════════
+
+const DIR_SYMBOLS = ['↑','↓','→','←','↗','↘','↙','↖','⬆','⬇','➡','⬅','⟳','●','◆','★'];
+const COLOR_OPTIONS = ['cyan','green','gold','red','violet','blue','orange','pink','white'];
+
+const COLOR_MAP: Record<string,string> = {
+  cyan:   'rgba(0,217,255,0.15)',   green:  'rgba(16,185,129,0.15)',
+  gold:   'rgba(245,158,11,0.15)',  red:    'rgba(239,68,68,0.15)',
+  violet: 'rgba(139,92,246,0.15)', blue:   'rgba(59,130,246,0.15)',
+  orange: 'rgba(249,115,22,0.15)', pink:   'rgba(236,72,153,0.15)',
+  white:  'rgba(255,255,255,0.1)',
+};
+const COLOR_TEXT: Record<string,string> = {
+  cyan:'#00d9ff', green:'#6ee7b7', gold:'#fbbf24', red:'#fca5a5',
+  violet:'#c4b5fd', blue:'#93c5fd', orange:'#fdba74', pink:'#f9a8d4', white:'#ffffff',
+};
+
+function IntelligenceForm({form, nf, editingId}:{
+  form:{id:string;heading:string;value:string;color:string;direction:string};
+  nf:(k:any)=>(v:string)=>void;
+  editingId:string;
+}) {
+  const previewBg   = COLOR_MAP[form.color]   ?? COLOR_MAP.cyan;
+  const previewText = COLOR_TEXT[form.color]  ?? COLOR_TEXT.cyan;
+
+  return (
+    <div className="space-y-4">
+      {/* ID */}
+      <div>
+        <label className="block text-[11px] text-muted-foreground mb-1">ID <span className="text-steami-red">*</span></label>
+        <input value={form.id} onChange={e=>nf('id')(e.target.value)} placeholder="e.g. ai-signals-28"
+          disabled={!!editingId}
+          className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px] disabled:opacity-40"/>
+      </div>
+
+      {/* Heading */}
+      <div>
+        <label className="block text-[11px] text-muted-foreground mb-1">Heading <span className="text-steami-red">*</span></label>
+        <input value={form.heading} onChange={e=>nf('heading')(e.target.value)} placeholder="e.g. AI Research Signals"
+          className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
+      </div>
+
+      {/* Value / Status */}
+      <div>
+        <label className="block text-[11px] text-muted-foreground mb-1">Value / Status</label>
+        <input value={form.value} onChange={e=>nf('value')(e.target.value)} placeholder="e.g. 28% · Active · +1.2k Nodes"
+          className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
+      </div>
+
+      {/* Color picker */}
+      <div>
+        <label className="block text-[11px] text-muted-foreground mb-2">Colour</label>
+        <div className="flex flex-wrap gap-2">
+          {COLOR_OPTIONS.map(c=>(
+            <button key={c} type="button" onClick={()=>nf('color')(c)}
+              className="w-7 h-7 rounded-full border-2 transition-all"
+              style={{
+                background: COLOR_TEXT[c],
+                borderColor: form.color===c ? '#fff' : 'transparent',
+                boxShadow: form.color===c ? `0 0 8px ${COLOR_TEXT[c]}` : 'none',
+              }}
+              title={c}/>
+          ))}
+        </div>
+      </div>
+
+      {/* Direction symbol keyboard */}
+      <div>
+        <label className="block text-[11px] text-muted-foreground mb-2">Direction Symbol</label>
+        <div className="grid grid-cols-8 gap-1.5">
+          {DIR_SYMBOLS.map(sym=>(
+            <button key={sym} type="button" onClick={()=>nf('direction')(sym)}
+              className="flex items-center justify-center rounded-md text-[18px] h-9 border transition-all"
+              style={{
+                background: form.direction===sym ? previewBg : 'rgba(255,255,255,0.03)',
+                borderColor: form.direction===sym ? previewText : 'rgba(255,255,255,0.08)',
+                color: form.direction===sym ? previewText : 'rgba(255,255,255,0.5)',
+              }}>
+              {sym}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground/50 mt-1">
+          Selected: <span style={{color:previewText}}>{form.direction || '—'}</span>
+        </p>
+      </div>
+
+      {/* Live preview */}
+      {form.heading && (
+        <div className="rounded-xl p-4 border"
+          style={{background:previewBg, borderColor:`${previewText}33`}}>
+          <p className="text-[11px] font-mono uppercase tracking-wider mb-1"
+            style={{color:previewText, opacity:0.7}}>Preview</p>
+          <p className="font-serif text-[15px] font-bold text-white mb-1">{form.heading}</p>
+          <p className="font-mono text-[13px]" style={{color:previewText}}>
+            {form.direction} {form.value}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // SHARED FORM STATE + HELPERS
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -30,12 +135,9 @@ const emptySimulation = {
   description:'',caption:'',readTime:'10 min interactive',
   simulation_type:'custom',component_id:'',insights:'',tags:'',
 };
+
 const emptyIntelligence = {
-  id:'',article_id:'',title:'',topic:'',source:'',article_url:'',
-  matched_domains:'',
-  ai_summary:'',ai_key_points:'',ai_sentiment:'positive',
-  ai_sentiment_label:'neutral_news',ai_emoji:'',ai_confidence:'',
-  ai_tags:'',ai_domain:'',ai_reading_time_min:'',ai_article_url:'',
+  id:'', heading:'', value:'', color:'cyan', direction:'↑',
 };
 
 const lines = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean);
@@ -105,8 +207,8 @@ export default function ModerationPage() {
   const resetAll = () => {
     setExplainerForm(emptyExplainer); setResearchForm(emptyResearch);
     setBlogForm(emptyBlog);           setSimForm(emptySimulation);
-    setIntelForm(emptyIntelligence);
     setEditingId(''); setImageFile(null); setGlbFile(null); setSnapshotB64('');
+    setIntelForm(emptyIntelligence);
   };
 
   const loadItems = async () => {
@@ -119,7 +221,7 @@ export default function ModerationPage() {
       else if (tab==='blog')       data = await api.content.cmsBlog();
       else if (tab==='intelligence') data = await api.content.cmsIntelligence();
       else return;
-      setItems(Array.isArray(data)?data:data?.simulations??data?.nodes??data?.items??data?.articles??data?.explainers??data?.posts??[]);
+      setItems(Array.isArray(data)?data:data?.nodes??data?.simulations??data?.items??data?.articles??data?.explainers??data?.posts??[]);
     } catch(err:any){setError(err.message||'Unable to load items');}
   };
 
@@ -197,33 +299,16 @@ export default function ModerationPage() {
         if(snapshotB64)await api.simulations.uploadSnapshot(tid,snapshotB64);
         if(glbFile)await api.simulations.uploadGlb(tid,glbFile);
       } else if (tab==='intelligence') {
-        const aiInsight = {
-          summary:          intelForm.ai_summary||undefined,
-          key_points:       intelForm.ai_key_points?intelForm.ai_key_points.split('\n').map((l:string)=>l.trim()).filter(Boolean):undefined,
-          sentiment:        intelForm.ai_sentiment||undefined,
-          sentiment_label:  intelForm.ai_sentiment_label||undefined,
-          emoji:            intelForm.ai_emoji||undefined,
-          confidence:       intelForm.ai_confidence?parseFloat(intelForm.ai_confidence):undefined,
-          tags:             intelForm.ai_tags?intelForm.ai_tags.split(',').map((l:string)=>l.trim()).filter(Boolean):undefined,
-          domain:           intelForm.ai_domain||undefined,
-          reading_time_min: intelForm.ai_reading_time_min?parseInt(intelForm.ai_reading_time_min):undefined,
-          article_url:      intelForm.ai_article_url||undefined,
+        if(!intelForm.id||!intelForm.heading){setError('ID and Heading required.');return;}
+        const node={
+          id:intelForm.id,
+          heading:intelForm.heading,
+          value:intelForm.value,
+          color:intelForm.color,
+          direction:intelForm.direction,
         };
-        const node = {
-          id:              intelForm.id,
-          article_id:      intelForm.article_id,
-          title:           intelForm.title,
-          topic:           intelForm.topic||undefined,
-          source:          intelForm.source||undefined,
-          article_url:     intelForm.article_url||undefined,
-          matched_domains: intelForm.matched_domains?intelForm.matched_domains.split(',').map((l:string)=>l.trim()).filter(Boolean):[],
-          ai_insight:      aiInsight,
-        };
-        if(editingId) await api.content.updateIntelligenceNode(editingId, node);
-        else {
-          if(!intelForm.id||!intelForm.title){setError('ID and Title required.');return;}
-          await api.content.createIntelligenceNode(node);
-        }
+        if(editingId) await api.content.updateIntelligenceNode(editingId,node);
+        else          await api.content.createIntelligenceNode({...node,article_id:intelForm.id,title:intelForm.heading});
       }
       setStatus('Saved successfully.'); resetAll(); loadItems();
     } catch(err:any){setError(err.message||'Save failed');}
@@ -273,18 +358,10 @@ export default function ModerationPage() {
       insights:Array.isArray(full.insights)?full.insights.join('\n'):'',
       tags:Array.isArray(full.tags)?full.tags.join(', '):'',
     });
-    else if(tab==='intelligence'){const ai=full.ai_insight??{};setIntelForm({
-      id:full.id??id,article_id:full.article_id??'',title:full.title??'',
-      topic:full.topic??'',source:full.source??'',article_url:full.article_url??'',
-      matched_domains:Array.isArray(full.matched_domains)?full.matched_domains.join(', '):'',
-      ai_summary:ai.summary??'',
-      ai_key_points:Array.isArray(ai.key_points)?ai.key_points.join('\n'):'',
-      ai_sentiment:ai.sentiment??'positive',ai_sentiment_label:ai.sentiment_label??'neutral_news',
-      ai_emoji:ai.emoji??'',ai_confidence:ai.confidence!=null?String(ai.confidence):'',
-      ai_tags:Array.isArray(ai.tags)?ai.tags.join(', '):'',ai_domain:ai.domain??'',
-      ai_reading_time_min:ai.reading_time_min!=null?String(ai.reading_time_min):'',
-      ai_article_url:ai.article_url??'',
-    });}
+    else if(tab==='intelligence')setIntelForm({
+      id:full.id??id, heading:full.heading??full.title??'',
+      value:full.value??'', color:full.color??'cyan', direction:full.direction??'↑',
+    });
     setStatus('Loaded for editing.');
   };
 
@@ -426,47 +503,7 @@ export default function ModerationPage() {
               </>}
 
 
-
-              {tab==='intelligence'&&<>
-                <Field label="ID" value={intelForm.id} onChange={nf('id')} required disabled={!!editingId} placeholder="e.g. node-001"/>
-                <Field label="Article ID" value={intelForm.article_id} onChange={nf('article_id')} required placeholder="Source article identifier"/>
-                <Field label="Title" value={intelForm.title} onChange={nf('title')} required/>
-                <Field label="Topic" value={intelForm.topic} onChange={nf('topic')} placeholder="e.g. QUANTUM PHYSICS"/>
-                <Field label="Source" value={intelForm.source} onChange={nf('source')} placeholder="e.g. Nature, MIT News"/>
-                <Field label="Article URL" value={intelForm.article_url} onChange={nf('article_url')} placeholder="https://..."/>
-                <Field label="Matched Domains (comma-separated)" value={intelForm.matched_domains} onChange={nf('matched_domains')} placeholder="PHYSICS, AI"/>
-                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">AI Insight Block</p>
-                  <TextArea label="Summary" value={intelForm.ai_summary} onChange={nf('ai_summary')} rows={3}/>
-                  <TextArea label="Key Points" value={intelForm.ai_key_points} onChange={nf('ai_key_points')} rows={3} hint="One per line."/>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] text-muted-foreground mb-1">Sentiment</label>
-                      <select value={intelForm.ai_sentiment} onChange={e=>nf('ai_sentiment')(e.target.value)}
-                        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]">
-                        <option value="positive">Positive</option>
-                        <option value="negative">Negative</option>
-                        <option value="neutral">Neutral</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-muted-foreground mb-1">Sentiment Label</label>
-                      <select value={intelForm.ai_sentiment_label} onChange={e=>nf('ai_sentiment_label')(e.target.value)}
-                        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]">
-                        <option value="good_news">Good News</option>
-                        <option value="bad_news">Bad News</option>
-                        <option value="neutral_news">Neutral News</option>
-                      </select>
-                    </div>
-                  </div>
-                  <Field label="Emoji" value={intelForm.ai_emoji} onChange={nf('ai_emoji')} placeholder="⚛️"/>
-                  <Field label="Confidence (0–1)" value={intelForm.ai_confidence} onChange={nf('ai_confidence')} placeholder="0.92"/>
-                  <Field label="Tags (comma-separated)" value={intelForm.ai_tags} onChange={nf('ai_tags')} placeholder="quantum, computing"/>
-                  <Field label="Domain" value={intelForm.ai_domain} onChange={nf('ai_domain')} placeholder="QUANTUM PHYSICS"/>
-                  <Field label="Reading Time (min)" value={intelForm.ai_reading_time_min} onChange={nf('ai_reading_time_min')} placeholder="4"/>
-                  <Field label="AI Article URL" value={intelForm.ai_article_url} onChange={nf('ai_article_url')} placeholder="https://..."/>
-                </div>
-              </>}
+              {tab==='intelligence'&&<IntelligenceForm form={intelForm} nf={nf} editingId={editingId}/>}
 
               {(tab==='explainer'||tab==='research'||tab==='blog')&&(
                 <div>

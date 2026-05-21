@@ -309,6 +309,19 @@ export const api = {
     cmsResearchArticle: (id: string) => apiRequest(`/api/cms/research/${encodeURIComponent(id)}`),
     cmsBlog: () => apiRequest("/api/cms/blog"),
     cmsBlogPost: (id: string) => apiRequest(`/api/cms/blog/${encodeURIComponent(id)}`),
+
+    // Live Intelligence Network
+    intelligenceNodes: (params?: { domain?: string; sentiment?: string; tag?: string; limit?: number }) =>
+      apiRequest(`/api/intelligence/nodes${buildQuery(params)}`),
+    intelligenceNode: (id: string) => apiRequest(`/api/intelligence/nodes/${encodeURIComponent(id)}`),
+    createIntelligenceNode: (body: Record<string, unknown>) =>
+      apiRequest("/api/intelligence/nodes", { method: "POST", body }),
+    updateIntelligenceNode: (id: string, body: Record<string, unknown>) =>
+      apiRequest(`/api/intelligence/nodes/${encodeURIComponent(id)}`, { method: "PUT", body }),
+    deleteIntelligenceNode: (id: string) =>
+      apiRequest(`/api/intelligence/nodes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    cmsIntelligence: () => apiRequest("/api/cms/intelligence"),
+    cmsIntelligenceNode: (id: string) => apiRequest(`/api/cms/intelligence/${encodeURIComponent(id)}`),
   },
 
   simulations: {

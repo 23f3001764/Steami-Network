@@ -104,7 +104,7 @@ function BlackholeModel() {
     <primitive
       ref={ref}
       object={scene}
-      scale={1}
+      scale={1.8}
       position={[0, 0, 0]}
     />
   );
@@ -121,32 +121,13 @@ function BlackholeFallback() {
   );
 }
 
-// The full Three.js canvas section — responsive height: 320 px on mobile, 520 px on md+
+// The full Three.js canvas section
 function BlackholeSection({ isLight }: { isLight: boolean }) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-
-  const canvasHeight = isMobile ? 320 : 520;
-  // On mobile scale the model down so it fits without clipping
-  const modelScale   = isMobile ? 1.1 : 1.8;
-  // Pull the camera slightly closer on mobile so the model fills the frame
-  const cameraZ      = isMobile ? 4 : 5;
-
   return (
-    <section
-      className="relative w-full"
-      style={{ height: canvasHeight }}
-    >
+    <section className="relative w-full" style={{ height: '520px' }}>
       {/* Gradient fade top */}
       <div
-        className="absolute inset-x-0 top-0 h-16 md:h-24 z-10 pointer-events-none"
+        className="absolute inset-x-0 top-0 h-24 z-10 pointer-events-none"
         style={{
           background: isLight
             ? 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, transparent 100%)'
@@ -155,7 +136,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
       />
       {/* Gradient fade bottom */}
       <div
-        className="absolute inset-x-0 bottom-0 h-16 md:h-24 z-10 pointer-events-none"
+        className="absolute inset-x-0 bottom-0 h-24 z-10 pointer-events-none"
         style={{
           background: isLight
             ? 'linear-gradient(to top, rgba(255,255,255,1) 0%, transparent 100%)'
@@ -163,18 +144,18 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
         }}
       />
 
-      {/* Label — smaller tracking on mobile */}
-      <div className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2 z-20 text-center px-3">
-        <p className="font-mono text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase text-steami-cyan/60 whitespace-nowrap">
+      {/* Label */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center">
+        <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-steami-cyan/60">
           ◆ Gravitational Singularity
         </p>
       </div>
 
       {/* Canvas */}
       <Canvas
-        camera={{ position: [0, 0, cameraZ], fov: isMobile ? 50 : 45 }}
+        camera={{ position: [0, 0, 5], fov: 45 }}
         gl={{ antialias: true, alpha: true }}
-        style={{ background: 'transparent', width: '100%', height: '100%' }}
+        style={{ background: 'transparent' }}
       >
         <ambientLight intensity={0.3} />
         <pointLight position={[4, 4, 4]} intensity={1.2} color="#00d9ff" />
@@ -183,7 +164,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
         <Stars
           radius={60}
           depth={30}
-          count={isMobile ? 900 : 1800}
+          count={1800}
           factor={3}
           saturation={0}
           fade
@@ -191,10 +172,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
         />
 
         <Suspense fallback={null}>
-          {/* Pass dynamic scale via a wrapper group so BlackholeModel stays pure */}
-          <group scale={modelScale}>
-            <BlackholeModel />
-          </group>
+          <BlackholeModel />
           <OrbitControls
             enableZoom={false}
             enablePan={false}
@@ -207,7 +185,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
       </Canvas>
 
       {/* CC attribution (required by the CC-BY-4.0 license in license.txt) */}
-      <p className="absolute bottom-2 right-3 z-20 font-mono text-[8px] md:text-[9px] text-muted-foreground/30">
+      <p className="absolute bottom-2 right-3 z-20 font-mono text-[9px] text-muted-foreground/30">
         "Blackhole" by{' '}
         <a
           href="https://sketchfab.com/rubykamen"
@@ -262,17 +240,17 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
   }, [search]);
 
-  // Load all insights once, filter client-side (API doesn't support filtering)
+  // Load all intelligence nodes from Live Intelligence Network API
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.insights
-      .list({ limit: 100 } as any)
+    api.content
+      .intelligenceNodes({ limit: 100 })
       .then((data: any) => {
         const list: ApiInsightItem[] = Array.isArray(data?.insights) ? data.insights
           : Array.isArray(data) ? data : [];
         setAllItems(list);
-        // Collect unique domains
+        // Collect unique domains from ai_insight.domain or topic
         const domainSet = new Set<string>();
         list.forEach((item) => {
           const d = item.ai_insight?.domain || item.topic;
@@ -280,7 +258,7 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
         });
         setDomains(['ALL', ...Array.from(domainSet).sort()]);
       })
-      .catch((err: any) => setError(err?.message ?? 'Failed to load insights.'))
+      .catch((err: any) => setError(err?.message ?? 'Failed to load intelligence feed.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -331,18 +309,18 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
       >
-        <div className="steami-section-label mb-3">◆ INTELLIGENCE ARCHIVE</div>
+        <div className="steami-section-label mb-3">◆ LIVE INTELLIGENCE NETWORK</div>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <h2 className="steami-heading text-3xl md:text-4xl mb-2 flex items-center gap-3">
               <Layers className="w-7 h-7 opacity-60" />
-              AI Insights
+              Intelligence Feed
             </h2>
             <p className="text-[16px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              AI-generated insights from the latest STEM news — updated in real-time.
+              Live signals from the STEM intelligence network — curated and updated in real-time.
               {filtered.length > 0 && (
                 <span className="ml-2 font-mono text-steami-cyan text-[13px]">
-                  {filtered.length} insights
+                  {filtered.length} signals
                 </span>
               )}
             </p>
@@ -494,6 +472,26 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Colour map for node cards (matches ModerationPage IntelligenceForm)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NODE_COLOR_BG: Record<string, string> = {
+  cyan:   'rgba(0,217,255,0.10)',   green:  'rgba(16,185,129,0.10)',
+  gold:   'rgba(245,158,11,0.10)',  red:    'rgba(239,68,68,0.10)',
+  violet: 'rgba(139,92,246,0.10)', blue:   'rgba(59,130,246,0.10)',
+  orange: 'rgba(249,115,22,0.10)', pink:   'rgba(236,72,153,0.10)',
+  white:  'rgba(255,255,255,0.07)',
+};
+const NODE_COLOR_TEXT: Record<string, string> = {
+  cyan:'#00d9ff', green:'#6ee7b7', gold:'#fbbf24', red:'#fca5a5',
+  violet:'#c4b5fd', blue:'#93c5fd', orange:'#fdba74', pink:'#f9a8d4', white:'#ffffff',
+};
+const NODE_COLOR_DOT: Record<string, string> = {
+  cyan:'#00d9ff', green:'#10b981', gold:'#f59e0b', red:'#ef4444',
+  violet:'#8b5cf6', blue:'#3b82f6', orange:'#f97316', pink:'#ec4899', white:'#e2e8f0',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Insight Card
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -507,109 +505,73 @@ function InsightCard({
     visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] as [number,number,number,number] } },
   };
 
+  // Support both the simple schema (heading/value/color/direction)
+  // and the legacy full ai_insight schema
+  const heading   = (item as any).heading || item.title || '';
+  const value     = (item as any).value   || '';
+  const colorKey  = (item as any).color   || 'cyan';
+  const direction = (item as any).direction || '↑';
+
+  const cardBg   = NODE_COLOR_BG[colorKey]   ?? NODE_COLOR_BG.cyan;
+  const textCol  = NODE_COLOR_TEXT[colorKey] ?? NODE_COLOR_TEXT.cyan;
+  const dotCol   = NODE_COLOR_DOT[colorKey]  ?? NODE_COLOR_DOT.cyan;
+
+  // Fallback domain label from legacy schema
   const insight = item.ai_insight;
-  const sentKey = insight?.sentiment_label ?? 'neutral_news';
-  const sentCfg = SENTIMENT_CONFIG[sentKey] ?? SENTIMENT_CONFIG.neutral_news;
-  const domain  = insight?.domain || item.topic || (item.matched_domains?.[0] ?? '');
-  const emoji   = insight?.emoji ?? '';
+  const domain  = insight?.domain || item.topic || '';
 
   return (
     <motion.div
       variants={cardVariants}
       whileTap={{ scale: 0.975 }}
       onClick={onClick}
-      className="relative cursor-pointer overflow-hidden group flex flex-col rounded-xl transition-shadow duration-300 hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
+      className="relative cursor-pointer overflow-hidden group flex flex-col rounded-xl transition-all duration-300 hover:shadow-[0_8px_40px_rgba(0,0,0,0.28)]"
       style={{
-        background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(8,16,38,0.82)',
-        border: isLight ? '1px solid rgba(147,197,253,0.25)' : '1px solid rgba(111,168,255,0.1)',
+        background: isLight ? 'rgba(255,255,255,0.88)' : 'rgba(8,16,38,0.84)',
+        border: `1px solid ${dotCol}22`,
         backdropFilter: 'blur(12px)',
       }}
     >
-      {/* Top accent bar — sentiment colour */}
-      <div className="h-[2px] w-full shrink-0" style={{ background: `linear-gradient(90deg, ${sentCfg.dot} 0%, transparent 100%)` }} />
+      {/* Top accent bar */}
+      <div className="h-[2px] w-full shrink-0"
+        style={{ background: `linear-gradient(90deg, ${dotCol} 0%, transparent 100%)` }} />
 
-      {/* Emoji hero */}
-      <div
-        className="flex items-center justify-center"
-        style={{
-          height: 100,
-          background: isLight
-            ? 'linear-gradient(135deg, rgba(147,197,253,0.1) 0%, rgba(167,139,250,0.07) 100%)'
-            : 'linear-gradient(135deg, rgba(0,217,255,0.07) 0%, rgba(255,78,240,0.05) 100%)',
-        }}
-      >
-        {emoji
-          ? <span style={{ fontSize: 44 }} role="img">{emoji}</span>
-          : <BookOpen className="w-10 h-10 opacity-10" />
-        }
+      {/* Hero area — direction symbol large */}
+      <div className="flex items-center justify-center"
+        style={{ height: 88, background: cardBg }}>
+        <span style={{ fontSize: 48, lineHeight: 1, color: textCol, filter: `drop-shadow(0 0 8px ${dotCol}66)` }}>
+          {direction}
+        </span>
       </div>
 
       {/* Divider */}
-      <div
-        className="h-px mx-5"
-        style={{
-          background: isLight
-            ? 'linear-gradient(90deg, transparent, rgba(147,197,253,0.4), transparent)'
-            : `linear-gradient(90deg, transparent, ${sentCfg.dot}33, transparent)`,
-        }}
-      />
+      <div className="h-px mx-5"
+        style={{ background: `linear-gradient(90deg, transparent, ${dotCol}33, transparent)` }} />
 
       {/* Content */}
       <div className="p-5 pt-4 flex-1 flex flex-col">
-        {/* Domain + sentiment badge */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          {domain && (
-            <span className="steami-badge steami-badge-cyan text-[11px]">{domain}</span>
-          )}
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-bold"
-            style={{ background: sentCfg.bg, color: sentCfg.text }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: sentCfg.dot }} />
-            {sentCfg.label}
-          </span>
-        </div>
+        {/* Domain badge */}
+        {domain && (
+          <div className="mb-2">
+            <span className="inline-block font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 rounded-full"
+              style={{ background: `${dotCol}18`, color: textCol }}>
+              {domain}
+            </span>
+          </div>
+        )}
 
-        <h3 className="font-serif text-[15px] font-extrabold mb-1.5 leading-snug text-foreground line-clamp-2">
-          {item.title}
+        {/* Heading */}
+        <h3 className="font-serif text-[15px] font-extrabold mb-2 leading-snug text-foreground line-clamp-2">
+          {heading}
         </h3>
 
-        {insight?.summary && (
-          <p className="text-[12px] font-medium text-muted-foreground leading-relaxed line-clamp-3 mb-3 flex-1">
-            {insight.summary}
+        {/* Value / status — big mono display */}
+        {value && (
+          <p className="font-mono text-[22px] font-bold tracking-tight mt-auto"
+            style={{ color: textCol, textShadow: `0 0 12px ${dotCol}55` }}>
+            {direction} {value}
           </p>
         )}
-
-        {/* Key points preview */}
-        {insight?.key_points && insight.key_points.length > 0 && (
-          <ul className="space-y-1 mb-3">
-            {insight.key_points.slice(0, 2).map((pt, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                <span className="text-steami-cyan mt-0.5 shrink-0">›</span>
-                <span className="line-clamp-1">{pt}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-foreground/5 mt-auto">
-          <div className="flex items-center gap-2">
-            {item.source && (
-              <span className="font-mono text-[10px] text-muted-foreground/55 tracking-wider truncate max-w-[90px]">
-                {item.source}
-              </span>
-            )}
-            {insight?.reading_time_min && (
-              <span className="font-mono text-[10px] text-muted-foreground/40">
-                {insight.reading_time_min}m
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <PopupLinkPill type="insight" id={item.article_id} title={item.title} />
-          </div>
-        </div>
       </div>
     </motion.div>
   );
