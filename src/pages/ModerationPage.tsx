@@ -28,7 +28,7 @@ const COLOR_TEXT: Record<string,string> = {
 };
 
 function IntelligenceForm({form, nf, editingId}:{
-  form:{id:string;heading:string;value:string;color:string;direction:string};
+  form:{id:string;heading:string;value:string;color:string;direction:string;emoji:string};
   nf:(k:any)=>(v:string)=>void;
   editingId:string;
 }) {
@@ -57,6 +57,31 @@ function IntelligenceForm({form, nf, editingId}:{
         <label className="block text-[11px] text-muted-foreground mb-1">Value / Status</label>
         <input value={form.value} onChange={e=>nf('value')(e.target.value)} placeholder="e.g. 28% · Active · +1.2k Nodes"
           className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
+      </div>
+
+      {/* Emoji */}
+      <div>
+        <label className="block text-[11px] text-muted-foreground mb-1">Emoji</label>
+        <div className="flex items-center gap-2">
+          <input value={form.emoji} onChange={e=>nf('emoji')(e.target.value)} placeholder="e.g. ⚛️ 🧬 🤖 ⚡"
+            className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[20px]"/>
+          {form.emoji && (
+            <span className="text-[28px] shrink-0">{form.emoji}</span>
+          )}
+        </div>
+        {/* Quick-pick common science emojis */}
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {['⚛️','🧬','🤖','⚡','🔬','🧪','🌌','💡','🔭','🧠','🦠','🛸','🌊','⚗️','🔋','🧲'].map(e=>(
+            <button key={e} type="button" onClick={()=>nf('emoji')(e)}
+              className="text-[20px] w-9 h-9 flex items-center justify-center rounded-lg transition-all hover:scale-110"
+              style={{
+                background: form.emoji===e ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${form.emoji===e ? 'rgba(0,217,255,0.4)' : 'rgba(255,255,255,0.07)'}`,
+              }}>
+              {e}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Color picker */}
@@ -97,16 +122,38 @@ function IntelligenceForm({form, nf, editingId}:{
         </p>
       </div>
 
-      {/* Live preview */}
+      {/* Live preview — card + ticker pill */}
       {form.heading && (
-        <div className="rounded-xl p-4 border"
-          style={{background:previewBg, borderColor:`${previewText}33`}}>
-          <p className="text-[11px] font-mono uppercase tracking-wider mb-1"
-            style={{color:previewText, opacity:0.7}}>Preview</p>
-          <p className="font-serif text-[15px] font-bold text-white mb-1">{form.heading}</p>
-          <p className="font-mono text-[13px]" style={{color:previewText}}>
-            {form.direction} {form.value}
-          </p>
+        <div className="space-y-3">
+          {/* Card preview */}
+          <div className="rounded-xl p-4 border"
+            style={{background:previewBg, borderColor:`${previewText}33`}}>
+            <p className="text-[10px] font-mono uppercase tracking-widest mb-2"
+              style={{color:previewText, opacity:0.6}}>Card Preview</p>
+            <p className="font-serif text-[15px] font-bold text-white mb-1">
+              {form.emoji && <span className="mr-2">{form.emoji}</span>}{form.heading}
+            </p>
+            <p className="font-mono text-[20px] font-bold" style={{color:previewText, textShadow:`0 0 12px ${previewText}55`}}>
+              {form.direction} {form.value}
+            </p>
+          </div>
+          {/* Ticker pill preview */}
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-widest mb-2"
+              style={{color:previewText, opacity:0.6}}>Ticker Pill Preview</p>
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full"
+              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}>
+              <div className="w-4 h-4 rounded-full flex-shrink-0"
+                style={{background:`${previewText}30`, border:`1px solid ${previewText}60`}} />
+              <span className="text-sm font-medium text-white">
+                {form.emoji && <span className="mr-1">{form.emoji}</span>}{form.heading}
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+                style={{background:`${previewText}18`, color:previewText}}>
+                {form.direction} {form.value}
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -137,7 +184,7 @@ const emptySimulation = {
 };
 
 const emptyIntelligence = {
-  id:'', heading:'', value:'', color:'cyan', direction:'↑',
+  id:'', heading:'', value:'', color:'cyan', direction:'↑', emoji:'',
 };
 
 const lines = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean);
@@ -306,6 +353,7 @@ export default function ModerationPage() {
           value:intelForm.value,
           color:intelForm.color,
           direction:intelForm.direction,
+          emoji:intelForm.emoji||undefined,
         };
         if(editingId) await api.content.updateIntelligenceNode(editingId,node);
         else          await api.content.createIntelligenceNode({...node,article_id:intelForm.id,title:intelForm.heading});
@@ -360,7 +408,7 @@ export default function ModerationPage() {
     });
     else if(tab==='intelligence')setIntelForm({
       id:full.id??id, heading:full.heading??full.title??'',
-      value:full.value??'', color:full.color??'cyan', direction:full.direction??'↑',
+      value:full.value??'', color:full.color??'cyan', direction:full.direction??'↑', emoji:full.emoji??'',
     });
     setStatus('Loaded for editing.');
   };

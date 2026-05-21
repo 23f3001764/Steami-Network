@@ -56,6 +56,31 @@ const SENTIMENT_TREND = {
   neutral_news: { isUp: true,  symbol: '→' },
 } as const;
 
+// Color name → hex (matches ModerationPage IntelligenceForm COLOR_OPTIONS)
+const COLOR_HEX: Record<string, string> = {
+  cyan:   '#00d9ff', green:  '#6ee7b7', gold:   '#fbbf24', red:    '#fca5a5',
+  violet: '#c4b5fd', blue:   '#93c5fd', orange: '#fdba74', pink:   '#f9a8d4',
+  white:  '#ffffff',
+};
+
+// Moved here so both useEffect and refreshFeed can call it
+const mapToSignal = (item: any, idx: number) => {
+  const ai       = item.ai_insight;
+  const label    = item.heading || item.title || '';
+  const val      = item.value   || ai?.domain || item.topic || item.source || '';
+  const symbol   = item.direction || undefined;
+  const color    = item.color ? COLOR_HEX[item.color] ?? undefined : undefined;
+  const emoji    = item.emoji || ai?.emoji || undefined;
+  const sentKey  = (ai?.sentiment_label ?? 'neutral_news') as keyof typeof SENTIMENT_TREND;
+  const sentTrend = SENTIMENT_TREND[sentKey] ?? SENTIMENT_TREND.neutral_news;
+  return {
+    icon:  getIcon(idx),
+    label,
+    trend: { value: val, isUp: sentTrend.isUp, symbol, color, emoji },
+    raw:   item,
+  };
+};
+
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,22 +297,12 @@ export const IntelligenceTicker: React.FC = () => {
         const list: InsightItem[] = Array.isArray(data?.insights) ? data.insights
           : Array.isArray(data?.nodes) ? data.nodes
           : Array.isArray(data) ? data : [];
-        const mapped = list.slice(0, 20).map((item: any, idx: number) => {
-          const ai      = item.ai_insight;
-          // Support both simplified schema (heading/value/direction/color)
-          // and full schema (title / ai_insight)
-          const label   = item.heading || item.title || '';
-          const val     = item.value || ai?.domain || item.topic || item.source || '';
-          const sentKey = (ai?.sentiment_label ?? 'neutral_news') as keyof typeof SENTIMENT_TREND;
-          const trend   = SENTIMENT_TREND[sentKey] ?? SENTIMENT_TREND.neutral_news;
-          return {
-            icon:  getIcon(idx),
-            label,
-            trend: { value: val, isUp: trend.isUp },
-            raw:   item,
-          };
-        });
-        setSignals(mapped);
+        const mapped = list.slice(0, 20).map(mapToSignal);
+        // Pad to at least 8 items so TickerTrack duplication isn't obvious
+        const padded = mapped.length > 0 && mapped.length < 8
+          ? Array.from({ length: Math.ceil(8 / mapped.length) }).flatMap(() => mapped).slice(0, 8)
+          : mapped;
+        setSignals(padded);
         // Pre-populate feed items too (same data, avoids a second request)
         if (isAuthed) setFeedItems(list);
       })
@@ -311,15 +326,11 @@ export const IntelligenceTicker: React.FC = () => {
           : Array.isArray(data) ? data : [];
         setFeedItems(list);
         // Update ticker signals too
-        const mapped = list.slice(0, 20).map((item: any, idx: number) => {
-          const ai    = item.ai_insight;
-          const label = item.heading || item.title || '';
-          const val   = item.value || ai?.domain || item.topic || item.source || '';
-          const sentKey = (ai?.sentiment_label ?? 'neutral_news') as keyof typeof SENTIMENT_TREND;
-          const trend = SENTIMENT_TREND[sentKey] ?? SENTIMENT_TREND.neutral_news;
-          return { icon: getIcon(idx), label, trend: { value: val, isUp: trend.isUp }, raw: item };
-        });
-        setSignals(mapped);
+        const mapped = list.slice(0, 20).map(mapToSignal);
+        const padded = mapped.length > 0 && mapped.length < 8
+          ? Array.from({ length: Math.ceil(8 / mapped.length) }).flatMap(() => mapped).slice(0, 8)
+          : mapped;
+        setSignals(padded);
       })
       .catch((err: any) => setFeedError(err?.message ?? 'Failed to load feed'))
       .finally(() => setFeedLoading(false));
