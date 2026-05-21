@@ -18,9 +18,45 @@ import { X, ChevronLeft, ChevronRight, Network, FileText, Sparkles, Search, Book
 import { MotionWrapper } from '@/components/MotionWrappers';
 import { api, apiAssetUrl } from '@/lib/api';
 
-const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
+const getDeviceType = (): string => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/tablet|ipad|playbook|silk/.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android|blackberry|mini|windows\sce|palm/.test(ua)) return 'mobile';
+  return 'desktop';
+};
+
+const logPopupEvent = (
+  popup_type: string,
+  popup_id: string | undefined | null,
+  popup_title?: string,
+): number => {
+  const openedAt = Date.now();
+  if (!popup_id) return openedAt;
+  api.dashboard.event({
+    popup_type,
+    popup_id,
+    popup_title: popup_title ?? '',
+    device_type: getDeviceType(),
+  }).catch(() => {});
+  return openedAt;
+};
+
+const logPopupClose = (
+  popup_type: string,
+  popup_id: string | undefined | null,
+  openedAt: number,
+  popup_title?: string,
+) => {
   if (!popup_id) return;
-  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
+  const seconds = Math.round((Date.now() - openedAt) / 1000);
+  if (seconds < 2) return;
+  api.dashboard.event({
+    popup_type,
+    popup_id,
+    popup_title:           popup_title ?? '',
+    device_type:           getDeviceType(),
+    read_duration_seconds: seconds,
+  }).catch(() => {});
 };
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/$/, '');
@@ -42,13 +78,14 @@ export default function ResearchPage() {
   const [loadingResearch, setLoadingResearch] = useState(true);
   const [researchError, setResearchError] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const popupOpenedAt = useRef<number>(0);
   const diary = useSteamiStore((s) => s.diary);
   const recommendations = useSteamiStore((s) => s.recommendations);
 
   const openArticle = (article: Article) => {
     setSelectedArticle(article);
     setSearchParams({ research: article.id }, { replace: false });
-    logPopupEvent('research_article', article.id, article.title);
+    popupOpenedAt.current = logPopupEvent('research_article', article.id, article.title);
   };
 
   const openArticleFromLink = (article: Article) => {
@@ -56,6 +93,10 @@ export default function ResearchPage() {
   };
 
   const closeArticle = () => {
+    if (selectedArticle?.id && popupOpenedAt.current) {
+      logPopupClose('research_article', selectedArticle.id, popupOpenedAt.current, selectedArticle.title);
+      popupOpenedAt.current = 0;
+    }
     setSelectedArticle(null);
     const params = new URLSearchParams(searchParams);
     params.delete('research');
@@ -95,10 +136,8 @@ export default function ResearchPage() {
     const openId = searchParams.get('research') ?? searchParams.get('open');
     const article = openId ? pageArticles.find((a) => a.id === openId) : null;
     if (article) {
-      // Only log if selectedArticle isn't already set — avoids double-firing
-      // when openArticle() sets the param and immediately triggers this effect
       if (!selectedArticle) {
-        logPopupEvent('research_article', article.id, article.title);
+        popupOpenedAt.current = logPopupEvent('research_article', article.id, article.title);
       }
       openArticleFromLink(article);
     }

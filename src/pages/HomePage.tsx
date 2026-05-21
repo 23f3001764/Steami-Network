@@ -32,6 +32,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls, Stars, Environment } from '@react-three/drei';
 import { Link, useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
+import { useAuthStore } from '@/stores/auth-store';
 
 import { LandingHero }        from '@/components/landing/LandingHero';
 import { EcosystemSection }   from '@/components/home/intelligence-ecosystem/EcosystemSection';
@@ -51,7 +52,9 @@ import { useThemeStore }      from '@/stores/theme-store';
 import { api }                from '@/lib/api';
 import {
   Search, Layers, ArrowRight, ChevronDown,
-  BookOpen, Loader2,
+  BookOpen, Loader2, Lock, LogIn, RefreshCw,
+  Sparkles, Brain, Atom, Network, Zap, Dna, Cpu,
+  Microscope, FlaskConical, Orbit, Waves, BrainCircuit, LineChart,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -211,25 +214,169 @@ const SENTIMENT_CONFIG = {
   neutral_news: { label: 'Neutral',   bg: 'rgba(99,102,241,0.15)', text: '#a5b4fc', dot: '#6366f1' },
 } as const;
 
+// Icon pool for cards
+const ICON_POOL_HOME = [Brain, Atom, Network, LineChart, Zap, Dna, Cpu, Microscope, FlaskConical, Orbit, Waves, BrainCircuit];
+const getCardIcon = (idx: number) => ICON_POOL_HOME[idx % ICON_POOL_HOME.length];
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Intelligence Archive Section — GET /api/insights
+// Auth Gate — shown when user is not logged in
+// ─────────────────────────────────────────────────────────────────────────────
+
+function InsightsAuthGate({ isLight }: { isLight: boolean }) {
+  // Ghost card previews (blurred behind the gate)
+  const ghostCards = [
+    { label: 'Quantum Breakthrough in Error Correction', domain: 'PHYSICS',    sent: 'good_news'    as const, emoji: '⚛️' },
+    { label: 'CRISPR Expands to New Genetic Targets',    domain: 'BIOLOGY',    sent: 'good_news'    as const, emoji: '🧬' },
+    { label: 'Neural Scaling Laws Face New Challenge',   domain: 'AI',         sent: 'neutral_news' as const, emoji: '🤖' },
+    { label: 'Battery Energy Density Record Broken',     domain: 'ENERGY',     sent: 'good_news'    as const, emoji: '⚡' },
+  ];
+
+  return (
+    <div className="relative">
+      {/* Blurred ghost cards */}
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 select-none pointer-events-none"
+        style={{ filter: 'blur(4px)', opacity: 0.35 }}
+      >
+        {ghostCards.map((g, i) => {
+          const cfg = SENTIMENT_CONFIG[g.sent];
+          return (
+            <div key={i} className="flex flex-col rounded-xl overflow-hidden"
+              style={{
+                background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(8,16,38,0.82)',
+                border: isLight ? '1px solid rgba(147,197,253,0.25)' : `1px solid ${cfg.dot}22`,
+              }}>
+              <div className="h-[2px]" style={{ background: `linear-gradient(90deg, ${cfg.dot} 0%, transparent 100%)` }} />
+              <div className="flex items-center justify-center py-6"
+                style={{ background: cfg.bg, height: 90 }}>
+                <span style={{ fontSize: 36 }}>{g.emoji}</span>
+              </div>
+              <div className="p-4 flex flex-col gap-2">
+                <span className="font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 rounded-full w-fit"
+                  style={{ background: `${cfg.dot}18`, color: cfg.text }}>{g.domain}</span>
+                <div className="h-4 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)', width: '85%' }} />
+                <div className="h-3 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.5)' : 'rgba(30,41,59,0.4)', width: '100%' }} />
+                <div className="h-3 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.5)' : 'rgba(30,41,59,0.4)', width: '70%' }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Frosted lock gate */}
+      <div className="absolute inset-0 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+          className="flex flex-col items-center gap-5 px-8 py-8 rounded-2xl text-center max-w-md w-full"
+          style={{
+            background: isLight
+              ? 'rgba(255,255,255,0.92)'
+              : 'rgba(3,8,20,0.88)',
+            border: isLight
+              ? '1px solid rgba(37,99,235,0.2)'
+              : '1px solid rgba(0,217,255,0.18)',
+            backdropFilter: 'blur(24px)',
+            boxShadow: isLight
+              ? '0 20px 60px rgba(37,99,235,0.08), 0 4px 20px rgba(0,0,0,0.06)'
+              : '0 0 80px rgba(0,217,255,0.06), 0 20px 60px rgba(0,0,0,0.5)',
+          }}
+        >
+          {/* Pulsing lock icon */}
+          <div className="relative">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{
+                background: isLight ? 'rgba(37,99,235,0.08)' : 'rgba(0,217,255,0.08)',
+                border: isLight ? '1px solid rgba(37,99,235,0.2)' : '1px solid rgba(0,217,255,0.25)',
+              }}>
+              <Lock className="w-6 h-6" style={{ color: isLight ? '#2563eb' : '#00d9ff' }} />
+            </div>
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full animate-ping"
+              style={{ background: isLight ? '#2563eb' : '#00d9ff', opacity: 0.6 }} />
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full"
+              style={{ background: isLight ? '#2563eb' : '#00d9ff' }} />
+          </div>
+
+          {/* Text */}
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] mb-2"
+              style={{ color: isLight ? '#2563eb' : '#00d9ff', opacity: 0.7 }}>
+              ◆ Live Intelligence Feed
+            </p>
+            <h3 className="font-serif text-[20px] font-bold mb-2"
+              style={{ color: isLight ? '#0f172a' : '#f1f5f9' }}>
+              Sign in to unlock AI Insights
+            </h3>
+            <p className="text-[13px] leading-relaxed"
+              style={{ color: isLight ? '#475569' : '#94a3b8' }}>
+              Access real-time AI-generated insights from the latest STEM news — curated, analysed and updated continuously.
+            </p>
+          </div>
+
+          {/* Feature pills */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {['AI Summaries', 'Key Points', 'Sentiment Analysis', 'Domain Filters'].map(f => (
+              <span key={f}
+                className="font-mono text-[10px] tracking-wider px-3 py-1 rounded-full"
+                style={{
+                  background: isLight ? 'rgba(37,99,235,0.07)' : 'rgba(0,217,255,0.07)',
+                  border: isLight ? '1px solid rgba(37,99,235,0.15)' : '1px solid rgba(0,217,255,0.15)',
+                  color: isLight ? '#2563eb' : '#00d9ff',
+                }}>
+                <Sparkles className="w-2.5 h-2.5 inline mr-1 opacity-70" />
+                {f}
+              </span>
+            ))}
+          </div>
+
+          {/* CTA buttons */}
+          <div className="flex gap-3 w-full">
+            <Link to="/login" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-mono text-[12px] uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+              style={{
+                background: isLight ? '#2563eb' : 'rgba(0,217,255,0.12)',
+                border: isLight ? 'none' : '1px solid rgba(0,217,255,0.35)',
+                color: isLight ? '#fff' : '#00d9ff',
+                boxShadow: isLight ? '0 4px 20px rgba(37,99,235,0.25)' : '0 0 24px rgba(0,217,255,0.1)',
+              }}>
+              <LogIn className="w-3.5 h-3.5" />
+              Sign In
+            </Link>
+            <Link to="/signup" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-mono text-[12px] uppercase tracking-widest transition-all duration-200 hover:opacity-80"
+              style={{
+                background: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
+                border: isLight ? '1px solid rgba(15,23,42,0.12)' : '1px solid rgba(255,255,255,0.1)',
+                color: isLight ? '#475569' : 'rgba(255,255,255,0.55)',
+              }}>
+              Register
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intelligence Archive Section — GET /api/insights (auth required)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 8;
 
 function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const user      = useAuthStore(s => s.user);
+  const isAuthed  = !!user;
 
-  const [items,       setItems]       = useState<ApiInsightItem[]>([]);
-  const [allItems,    setAllItems]    = useState<ApiInsightItem[]>([]);
-  const [domains,     setDomains]     = useState<string[]>(['ALL']);
+  const [allItems,     setAllItems]     = useState<ApiInsightItem[]>([]);
+  const [domains,      setDomains]      = useState<string[]>(['ALL']);
   const [activeDomain, setActiveDomain] = useState('ALL');
-  const [search,      setSearch]      = useState('');
-  const [page,        setPage]        = useState(1);
-  const [hasMore,     setHasMore]     = useState(false);
-  const [loading,     setLoading]     = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [search,       setSearch]       = useState('');
+  const [page,         setPage]         = useState(1);
+  const [loading,      setLoading]      = useState(false);
+  const [loadingMore,  setLoadingMore]  = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -240,17 +387,17 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
   }, [search]);
 
-  // Load all intelligence nodes from Live Intelligence Network API
+  // Only fetch when authed
   useEffect(() => {
+    if (!isAuthed) return;
     setLoading(true);
     setError(null);
-    api.content
-      .intelligenceNodes({ limit: 100 })
+    api.insights
+      .list()
       .then((data: any) => {
         const list: ApiInsightItem[] = Array.isArray(data?.insights) ? data.insights
           : Array.isArray(data) ? data : [];
         setAllItems(list);
-        // Collect unique domains from ai_insight.domain or topic
         const domainSet = new Set<string>();
         list.forEach((item) => {
           const d = item.ai_insight?.domain || item.topic;
@@ -258,21 +405,20 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
         });
         setDomains(['ALL', ...Array.from(domainSet).sort()]);
       })
-      .catch((err: any) => setError(err?.message ?? 'Failed to load intelligence feed.'))
+      .catch((err: any) => setError(err?.message ?? 'Failed to load insights.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isAuthed]);
 
-  // Filter + paginate client-side
   const filtered = useMemo(() => {
     let list = allItems;
     if (activeDomain !== 'ALL') {
-      list = list.filter((item) =>
+      list = list.filter(item =>
         item.ai_insight?.domain === activeDomain || item.topic === activeDomain
       );
     }
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
-      list = list.filter((item) =>
+      list = list.filter(item =>
         item.title.toLowerCase().includes(q) ||
         item.source?.toLowerCase().includes(q) ||
         item.ai_insight?.summary?.toLowerCase().includes(q)
@@ -281,34 +427,21 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
     return list;
   }, [allItems, activeDomain, debouncedSearch]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [activeDomain, debouncedSearch]);
+  useEffect(() => { setPage(1); }, [activeDomain, debouncedSearch]);
 
   const displayed = filtered.slice(0, page * PAGE_SIZE);
 
   const handleLoadMore = () => {
     setLoadingMore(true);
-    setTimeout(() => {
-      setPage((p) => p + 1);
-      setLoadingMore(false);
-    }, 200);
-  };
-
-  const handleCardClick = (item: ApiInsightItem) => {
-    navigate(`/?insight=${item.article_id}`);
+    setTimeout(() => { setPage(p => p + 1); setLoadingMore(false); }, 200);
   };
 
   return (
     <section className="relative py-20 px-4 md:px-8 max-w-screen-xl mx-auto">
       {/* Section header */}
-      <motion.div
-        className="mb-10"
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-      >
+      <motion.div className="mb-10"
+        initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }} transition={{ duration: 0.6 }}>
         <div className="steami-section-label mb-3">◆ LIVE INTELLIGENCE NETWORK</div>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
@@ -317,179 +450,135 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
               Intelligence Feed
             </h2>
             <p className="text-[16px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              Live signals from the STEM intelligence network — curated and updated in real-time.
-              {filtered.length > 0 && (
-                <span className="ml-2 font-mono text-steami-cyan text-[13px]">
-                  {filtered.length} signals
-                </span>
-              )}
+              {isAuthed
+                ? <>AI-generated insights from the latest STEM news — updated in real-time.{filtered.length > 0 && <span className="ml-2 font-mono text-steami-cyan text-[13px]">{filtered.length} insights</span>}</>
+                : 'Real-time AI insights from the STEM intelligence network. Sign in to access the full feed.'}
             </p>
           </div>
-          <Link
-            to="/insights"
-            className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-steami-cyan hover:text-steami-cyan/80 transition-colors shrink-0"
-          >
-            View All <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          {isAuthed && (
+            <Link to="/insights"
+              className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-steami-cyan hover:text-steami-cyan/80 transition-colors shrink-0">
+              View All <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
         </div>
       </motion.div>
 
-      {/* Filters */}
-      <motion.div
-        className="flex flex-col sm:flex-row gap-4 mb-8"
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        {/* Search */}
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search insights…"
-            className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[14px] font-medium text-foreground placeholder:text-muted-foreground/70 outline-none transition focus:ring-2 focus:ring-steami-cyan/40"
-            style={{
-              background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8,18,42,0.96)',
-              border: isLight ? '1px solid rgba(37,99,235,0.35)' : '1px solid rgba(111,168,255,0.28)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-            }}
-          />
-        </div>
+      {/* ── NOT AUTHED — show gate ─────────────────────────────────────────── */}
+      {!isAuthed && <InsightsAuthGate isLight={isLight} />}
 
-        {/* Domain pills */}
-        <div className="flex flex-wrap gap-1.5">
-          {domains.map((d) => (
-            <button
-              key={d}
-              onClick={() => setActiveDomain(d)}
-              className="px-3 py-1.5 rounded-md text-[13px] font-mono tracking-wider uppercase transition-all duration-200"
-              style={{
-                background: activeDomain === d
-                  ? (isLight ? 'rgba(59,130,246,0.1)' : 'rgba(99,179,237,0.12)')
-                  : (isLight ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.03)'),
-                border: `1px solid ${activeDomain === d
-                  ? (isLight ? 'rgba(59,130,246,0.3)' : 'rgba(99,179,237,0.25)')
-                  : (isLight ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.06)')}`,
-                color: activeDomain === d ? 'hsl(var(--steami-cyan))' : 'hsl(var(--muted-foreground))',
-              }}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Error */}
-      {error && (
-        <div className="flex flex-col items-center justify-center py-16 gap-4">
-          <p className="font-mono text-[13px] text-red-400">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="font-mono text-[11px] uppercase tracking-wider px-4 py-2 rounded-lg border border-steami-cyan/30 text-steami-cyan hover:bg-steami-cyan/10 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Loading skeleton */}
-      {loading && !error && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-            <InsightCardSkeleton key={i} isLight={isLight} />
-          ))}
-        </div>
-      )}
-
-      {/* Cards grid */}
-      {!loading && !error && (
+      {/* ── AUTHED — show full feed ────────────────────────────────────────── */}
+      {isAuthed && (
         <>
-          {displayed.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-              <BookOpen className="w-10 h-10 opacity-20" />
-              <p className="font-mono text-[13px] tracking-wider">No insights found</p>
+          {/* Filters */}
+          <motion.div className="flex flex-col sm:flex-row gap-4 mb-8"
+            initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.1 }}>
+            {/* Search */}
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-steami-cyan" />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search insights…"
+                className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-lg text-[14px] font-medium text-foreground placeholder:text-muted-foreground/70 outline-none transition focus:ring-2 focus:ring-steami-cyan/40"
+                style={{
+                  background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(8,18,42,0.96)',
+                  border: isLight ? '1px solid rgba(37,99,235,0.35)' : '1px solid rgba(111,168,255,0.28)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                }} />
             </div>
-          ) : (
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-60px' }}
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.07 } },
-              }}
-            >
-              {displayed.map((item, idx) => (
-                <InsightCard
-                  key={item.article_id}
-                  item={item}
-                  idx={idx}
-                  isLight={isLight}
-                  onClick={() => handleCardClick(item)}
-                />
+            {/* Domain pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {domains.map(d => (
+                <button key={d} onClick={() => setActiveDomain(d)}
+                  className="px-3 py-1.5 rounded-md text-[13px] font-mono tracking-wider uppercase transition-all duration-200"
+                  style={{
+                    background: activeDomain === d
+                      ? (isLight ? 'rgba(59,130,246,0.1)' : 'rgba(99,179,237,0.12)')
+                      : (isLight ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.03)'),
+                    border: `1px solid ${activeDomain === d
+                      ? (isLight ? 'rgba(59,130,246,0.3)' : 'rgba(99,179,237,0.25)')
+                      : (isLight ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.06)')}`,
+                    color: activeDomain === d ? 'hsl(var(--steami-cyan))' : 'hsl(var(--muted-foreground))',
+                  }}>
+                  {d}
+                </button>
               ))}
-            </motion.div>
+            </div>
+          </motion.div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <p className="font-mono text-[13px] text-red-400">{error}</p>
+              <button onClick={() => window.location.reload()}
+                className="font-mono text-[11px] uppercase tracking-wider px-4 py-2 rounded-lg border border-steami-cyan/30 text-steami-cyan hover:bg-steami-cyan/10 transition-colors">
+                Retry
+              </button>
+            </div>
           )}
 
-          {/* Load More / View All */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            {displayed.length < filtered.length && (
-              <button
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50"
-                style={{
-                  border: isLight ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(99,179,237,0.22)',
-                  background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(8,18,42,0.6)',
-                  color: 'hsl(var(--muted-foreground))',
-                }}
-              >
-                {loadingMore
-                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</>
-                  : <><ChevronDown className="w-3.5 h-3.5" /> Load More</>
-                }
-              </button>
-            )}
-            <Link
-              to="/insights"
-              className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all duration-200"
-              style={{
-                border: isLight ? '1px solid rgba(0,217,255,0.35)' : '1px solid rgba(0,217,255,0.2)',
-                background: isLight ? 'rgba(0,217,255,0.06)' : 'rgba(0,217,255,0.08)',
-                color: 'hsl(var(--steami-cyan))',
-              }}
-            >
-              View Full Archive <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          {/* Skeleton */}
+          {loading && !error && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                <InsightCardSkeleton key={i} isLight={isLight} />
+              ))}
+            </div>
+          )}
+
+          {/* Cards */}
+          {!loading && !error && (
+            <>
+              {displayed.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+                  <BookOpen className="w-10 h-10 opacity-20" />
+                  <p className="font-mono text-[13px] tracking-wider">No insights found</p>
+                </div>
+              ) : (
+                <motion.div
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  initial="hidden" whileInView="visible"
+                  viewport={{ once: true, margin: '-60px' }}
+                  variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07 } } }}>
+                  {displayed.map((item, idx) => (
+                    <InsightCard key={item.article_id} item={item} idx={idx} isLight={isLight}
+                      onClick={() => navigate(`/?insight=${item.article_id}`)} />
+                  ))}
+                </motion.div>
+              )}
+
+              {/* Load More / View All */}
+              <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                {displayed.length < filtered.length && (
+                  <button onClick={handleLoadMore} disabled={loadingMore}
+                    className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50"
+                    style={{
+                      border: isLight ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(99,179,237,0.22)',
+                      background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(8,18,42,0.6)',
+                      color: 'hsl(var(--muted-foreground))',
+                    }}>
+                    {loadingMore
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</>
+                      : <><ChevronDown className="w-3.5 h-3.5" /> Load More</>}
+                  </button>
+                )}
+                <Link to="/insights"
+                  className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all duration-200"
+                  style={{
+                    border: isLight ? '1px solid rgba(0,217,255,0.35)' : '1px solid rgba(0,217,255,0.2)',
+                    background: isLight ? 'rgba(0,217,255,0.06)' : 'rgba(0,217,255,0.08)',
+                    color: 'hsl(var(--steami-cyan))',
+                  }}>
+                  View Full Archive <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </>
+          )}
         </>
       )}
     </section>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Colour map for node cards (matches ModerationPage IntelligenceForm)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const NODE_COLOR_BG: Record<string, string> = {
-  cyan:   'rgba(0,217,255,0.10)',   green:  'rgba(16,185,129,0.10)',
-  gold:   'rgba(245,158,11,0.10)',  red:    'rgba(239,68,68,0.10)',
-  violet: 'rgba(139,92,246,0.10)', blue:   'rgba(59,130,246,0.10)',
-  orange: 'rgba(249,115,22,0.10)', pink:   'rgba(236,72,153,0.10)',
-  white:  'rgba(255,255,255,0.07)',
-};
-const NODE_COLOR_TEXT: Record<string, string> = {
-  cyan:'#00d9ff', green:'#6ee7b7', gold:'#fbbf24', red:'#fca5a5',
-  violet:'#c4b5fd', blue:'#93c5fd', orange:'#fdba74', pink:'#f9a8d4', white:'#ffffff',
-};
-const NODE_COLOR_DOT: Record<string, string> = {
-  cyan:'#00d9ff', green:'#10b981', gold:'#f59e0b', red:'#ef4444',
-  violet:'#8b5cf6', blue:'#3b82f6', orange:'#f97316', pink:'#ec4899', white:'#e2e8f0',
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Insight Card
@@ -502,76 +591,111 @@ function InsightCard({
 }) {
   const cardVariants = {
     hidden:  { opacity: 0, y: 24 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] as [number,number,number,number] } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] } },
   };
 
-  // Support both the simple schema (heading/value/color/direction)
-  // and the legacy full ai_insight schema
-  const heading   = (item as any).heading || item.title || '';
-  const value     = (item as any).value   || '';
-  const colorKey  = (item as any).color   || 'cyan';
-  const direction = (item as any).direction || '↑';
-
-  const cardBg   = NODE_COLOR_BG[colorKey]   ?? NODE_COLOR_BG.cyan;
-  const textCol  = NODE_COLOR_TEXT[colorKey] ?? NODE_COLOR_TEXT.cyan;
-  const dotCol   = NODE_COLOR_DOT[colorKey]  ?? NODE_COLOR_DOT.cyan;
-
-  // Fallback domain label from legacy schema
   const insight = item.ai_insight;
-  const domain  = insight?.domain || item.topic || '';
+  const sentKey = insight?.sentiment_label ?? 'neutral_news';
+  const sentCfg = SENTIMENT_CONFIG[sentKey] ?? SENTIMENT_CONFIG.neutral_news;
+  const domain  = insight?.domain || item.topic || (item.matched_domains?.[0] ?? '');
+  const emoji   = insight?.emoji ?? '';
+  const Icon    = getCardIcon(idx);
 
   return (
     <motion.div
       variants={cardVariants}
+      whileHover={{ y: -4 }}
       whileTap={{ scale: 0.975 }}
       onClick={onClick}
-      className="relative cursor-pointer overflow-hidden group flex flex-col rounded-xl transition-all duration-300 hover:shadow-[0_8px_40px_rgba(0,0,0,0.28)]"
+      className="relative cursor-pointer overflow-hidden group flex flex-col rounded-2xl transition-all duration-300 hover:shadow-[0_12px_48px_rgba(0,0,0,0.28)]"
       style={{
         background: isLight ? 'rgba(255,255,255,0.88)' : 'rgba(8,16,38,0.84)',
-        border: `1px solid ${dotCol}22`,
+        border: `1px solid ${sentCfg.dot}22`,
         backdropFilter: 'blur(12px)',
-      }}
-    >
+      }}>
       {/* Top accent bar */}
       <div className="h-[2px] w-full shrink-0"
-        style={{ background: `linear-gradient(90deg, ${dotCol} 0%, transparent 100%)` }} />
+        style={{ background: `linear-gradient(90deg, ${sentCfg.dot} 0%, transparent 100%)` }} />
 
-      {/* Hero area — direction symbol large */}
-      <div className="flex items-center justify-center"
-        style={{ height: 88, background: cardBg }}>
-        <span style={{ fontSize: 48, lineHeight: 1, color: textCol, filter: `drop-shadow(0 0 8px ${dotCol}66)` }}>
-          {direction}
-        </span>
+      {/* Hero */}
+      <div className="flex items-center justify-center relative overflow-hidden"
+        style={{ height: 96, background: sentCfg.bg }}>
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.06]"
+          style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '16px 16px', color: sentCfg.dot }} />
+        {emoji
+          ? <span style={{ fontSize: 40, filter: `drop-shadow(0 0 12px ${sentCfg.dot}66)` }} role="img">{emoji}</span>
+          : (
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center"
+              style={{ background: `${sentCfg.dot}20`, border: `1px solid ${sentCfg.dot}40` }}>
+              <Icon className="w-5 h-5" style={{ color: sentCfg.text }} />
+            </div>
+          )
+        }
       </div>
 
       {/* Divider */}
       <div className="h-px mx-5"
-        style={{ background: `linear-gradient(90deg, transparent, ${dotCol}33, transparent)` }} />
+        style={{ background: `linear-gradient(90deg, transparent, ${sentCfg.dot}33, transparent)` }} />
 
       {/* Content */}
       <div className="p-5 pt-4 flex-1 flex flex-col">
-        {/* Domain badge */}
-        {domain && (
-          <div className="mb-2">
-            <span className="inline-block font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 rounded-full"
-              style={{ background: `${dotCol}18`, color: textCol }}>
+        {/* Domain + sentiment badge */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {domain && (
+            <span className="font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 rounded-full"
+              style={{ background: `${sentCfg.dot}18`, color: sentCfg.text }}>
               {domain}
             </span>
-          </div>
-        )}
+          )}
+          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-bold"
+            style={{ background: sentCfg.bg, color: sentCfg.text }}>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: sentCfg.dot }} />
+            {sentCfg.label}
+          </span>
+        </div>
 
-        {/* Heading */}
-        <h3 className="font-serif text-[15px] font-extrabold mb-2 leading-snug text-foreground line-clamp-2">
-          {heading}
+        <h3 className="font-serif text-[15px] font-extrabold mb-1.5 leading-snug text-foreground line-clamp-2">
+          {item.title}
         </h3>
 
-        {/* Value / status — big mono display */}
-        {value && (
-          <p className="font-mono text-[22px] font-bold tracking-tight mt-auto"
-            style={{ color: textCol, textShadow: `0 0 12px ${dotCol}55` }}>
-            {direction} {value}
+        {insight?.summary && (
+          <p className="text-[12px] font-medium text-muted-foreground leading-relaxed line-clamp-3 mb-3 flex-1">
+            {insight.summary}
           </p>
         )}
+
+        {/* Key points */}
+        {insight?.key_points && insight.key_points.length > 0 && (
+          <ul className="space-y-1 mb-3">
+            {insight.key_points.slice(0, 2).map((pt, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                <span className="shrink-0 mt-0.5" style={{ color: sentCfg.text }}>›</span>
+                <span className="line-clamp-1">{pt}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-3 mt-auto"
+          style={{ borderTop: `1px solid ${sentCfg.dot}15` }}>
+          <div className="flex items-center gap-2">
+            {item.source && (
+              <span className="font-mono text-[10px] text-muted-foreground/55 tracking-wider truncate max-w-[90px]">
+                {item.source}
+              </span>
+            )}
+            {insight?.reading_time_min && (
+              <span className="font-mono text-[10px] text-muted-foreground/40">
+                {insight.reading_time_min}m
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            <PopupLinkPill type="insight" id={item.article_id} title={item.title} />
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -583,16 +707,14 @@ function InsightCard({
 
 function InsightCardSkeleton({ isLight }: { isLight: boolean }) {
   return (
-    <div
-      className="rounded-xl overflow-hidden animate-pulse flex flex-col"
+    <div className="rounded-2xl overflow-hidden animate-pulse flex flex-col"
       style={{
         background: isLight ? 'rgba(241,245,249,0.9)' : 'rgba(15,23,42,0.7)',
         border: isLight ? '1px solid rgba(147,197,253,0.15)' : '1px solid rgba(111,168,255,0.07)',
         height: 300,
-      }}
-    >
+      }}>
       <div className="h-[2px] w-full" style={{ background: isLight ? 'rgba(147,197,253,0.3)' : 'rgba(99,179,237,0.12)' }} />
-      <div className="w-full" style={{ height: 100, background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)' }} />
+      <div className="w-full" style={{ height: 96, background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)' }} />
       <div className="p-5 flex flex-col gap-3">
         <div className="h-3 w-16 rounded-full" style={{ background: isLight ? 'rgba(147,197,253,0.4)' : 'rgba(99,179,237,0.15)' }} />
         <div className="h-4 w-4/5 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)' }} />
@@ -603,6 +725,9 @@ function InsightCardSkeleton({ isLight }: { isLight: boolean }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HomePage
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // HomePage
 // ─────────────────────────────────────────────────────────────────────────────

@@ -35,9 +35,45 @@ interface SimulationRecord {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
+const getDeviceType = (): string => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/tablet|ipad|playbook|silk/.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android|blackberry|mini|windows\sce|palm/.test(ua)) return 'mobile';
+  return 'desktop';
+};
+
+const logPopupEvent = (
+  popup_type: string,
+  popup_id: string | undefined | null,
+  popup_title?: string,
+): number => {
+  const openedAt = Date.now();
+  if (!popup_id) return openedAt;
+  api.dashboard.event({
+    popup_type,
+    popup_id,
+    popup_title: popup_title ?? '',
+    device_type: getDeviceType(),
+  }).catch(() => {});
+  return openedAt;
+};
+
+const logPopupClose = (
+  popup_type: string,
+  popup_id: string | undefined | null,
+  openedAt: number,
+  popup_title?: string,
+) => {
   if (!popup_id) return;
-  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
+  const seconds = Math.round((Date.now() - openedAt) / 1000);
+  if (seconds < 2) return;
+  api.dashboard.event({
+    popup_type,
+    popup_id,
+    popup_title:           popup_title ?? '',
+    device_type:           getDeviceType(),
+    read_duration_seconds: seconds,
+  }).catch(() => {});
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -681,6 +717,7 @@ export default function SimulationsPage() {
   const [loadingList,       setLoadingList]       = useState(true);
   const [listError,         setListError]         = useState('');
   const [openSim,           setOpenSim]           = useState<string | null>(null);
+  const popupOpenedAt = useRef<number>(0);
   // Stores a freshly-fetched copy of the opened simulation so glb_url /
   // snapshot_url are always up-to-date (list may have been fetched before upload)
   const [openedSimFresh,    setOpenedSimFresh]    = useState<SimulationRecord | null>(null);
@@ -735,7 +772,7 @@ export default function SimulationsPage() {
     if (simId && simulations.some((s) => s.id === simId)) {
       setOpenSim(simId);
       const sim = simulations.find((s) => s.id === simId);
-      if (sim) logPopupEvent('simulation', sim.id, sim.title);
+      if (sim) popupOpenedAt.current = logPopupEvent('simulation', sim.id, sim.title);
       params.delete('simulation');
       params.delete('open');
       window.history.replaceState(
@@ -904,7 +941,7 @@ export default function SimulationsPage() {
                       whileTap={cardTap}
                       onClick={() => {
                         setOpenSim(sim.id);
-                        logPopupEvent('simulation', sim.id, sim.title);
+                        popupOpenedAt.current = logPopupEvent('simulation', sim.id, sim.title);
                       }}
                       className="steami-btn text-[11px]"
                     >
@@ -940,7 +977,13 @@ export default function SimulationsPage() {
             animate="visible"
             exit="exit"
             style={{ background: 'rgba(2,8,18,0.82)', backdropFilter: 'blur(8px)' }}
-            onClick={() => setOpenSim(null)}
+            onClick={() => {
+              if (openedSim?.id && popupOpenedAt.current) {
+                logPopupClose('simulation', openedSim.id, popupOpenedAt.current, openedSim.title);
+                popupOpenedAt.current = 0;
+              }
+              setOpenSim(null);
+            }}
           >
             <motion.div
               className="w-full max-w-[800px] max-h-[90vh] overflow-y-auto rounded-xl"
@@ -980,7 +1023,13 @@ export default function SimulationsPage() {
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => setOpenSim(null)}
+                    onClick={() => {
+                      if (openedSim?.id && popupOpenedAt.current) {
+                        logPopupClose('simulation', openedSim.id, popupOpenedAt.current, openedSim.title);
+                        popupOpenedAt.current = 0;
+                      }
+                      setOpenSim(null);
+                    }}
                     className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
                     style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(10,25,55,0.4)' }}
                   >

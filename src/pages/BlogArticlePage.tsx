@@ -17,6 +17,15 @@ import { useThemeStore } from '@/stores/theme-store';
 import { Trash2, Share2, Twitter, Linkedin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, apiAssetUrl } from '@/lib/api';
+
+// ── Dashboard telemetry helpers ──────────────────────────────────────────────
+
+const getDeviceType = (): string => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/tablet|ipad|playbook|silk/.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android|blackberry|mini|windows\sce|palm/.test(ua)) return 'mobile';
+  return 'desktop';
+};
 import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 
 // ---------------------------------------------------------------------------
@@ -86,6 +95,9 @@ export default function BlogArticlePage() {
   /** Ref scoped to the article body — TextSelectionPopover listens here only */
   const contentRef = useRef<HTMLDivElement>(null);
 
+  /** Track when this blog post was first opened for read-duration telemetry */
+  const pageOpenedAt = useRef<number>(0);
+
   useEffect(() => {
     window.scrollTo(0, 0);
     if (id) {
@@ -93,11 +105,38 @@ export default function BlogArticlePage() {
       setPost(null);
       api.content
         .blogPost(id)
-        .then((backendPost: any) => setPost(normalisePost(backendPost)))
+        .then((backendPost: any) => {
+          const normalised = normalisePost(backendPost);
+          setPost(normalised);
+          // Log open event once content is confirmed to exist
+          pageOpenedAt.current = Date.now();
+          api.dashboard.event({
+            popup_type:  'ai_insight',   // blog posts map to ai_insight in the taxonomy
+            popup_id:    id,
+            popup_title: normalised.title,
+            device_type: getDeviceType(),
+          }).catch(() => {});
+        })
         .catch((err: any) =>
           setError(`Backend blog API failed: ${err.message || 'Unable to fetch post'}`)
         );
     }
+    // On unmount / route change — send read duration
+    return () => {
+      if (pageOpenedAt.current && id) {
+        const seconds = Math.round((Date.now() - pageOpenedAt.current) / 1000);
+        if (seconds >= 2) {
+          api.dashboard.event({
+            popup_type:            'ai_insight',
+            popup_id:              id,
+            popup_title:           '',   // title may not be in scope; backend has it
+            device_type:           getDeviceType(),
+            read_duration_seconds: seconds,
+          }).catch(() => {});
+        }
+        pageOpenedAt.current = 0;
+      }
+    };
   }, [id]);
 
   if (!post) {

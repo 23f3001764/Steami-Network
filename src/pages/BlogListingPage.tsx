@@ -9,6 +9,23 @@ import { fadeInUp } from '@/lib/motion';
 import { AnimatedSection, AnimatedCard } from '@/components/MotionWrappers';
 import { api, apiAssetUrl } from '@/lib/api';
 
+const getDeviceType = (): string => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/tablet|ipad|playbook|silk/.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android|blackberry|mini|windows\sce|palm/.test(ua)) return 'mobile';
+  return 'desktop';
+};
+
+/** Fire-and-forget event when a blog card is clicked — captures intent signal. */
+const logBlogClick = (post: any) => {
+  api.dashboard.event({
+    popup_type:  'ai_insight',
+    popup_id:    post.id,
+    popup_title: post.title ?? '',
+    device_type: getDeviceType(),
+  }).catch(() => {});
+};
+
 export default function BlogListingPage() {
   const { posts: localPosts } = useBlogStore();
   const [backendPosts, setBackendPosts] = useState<any[]>([]);
@@ -50,7 +67,11 @@ export default function BlogListingPage() {
       <AnimatedSection className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {posts.map((post, idx) => (
           <AnimatedCard key={post.id} index={idx} className="h-full">
-            <Link to={`/blog/${post.id}`} className="glass-card flex flex-col h-full overflow-hidden group">
+            <Link
+              to={`/blog/${post.id}`}
+              className="glass-card flex flex-col h-full overflow-hidden group"
+              onClick={() => logBlogClick(post)}
+            >
               <div className="relative h-48 overflow-hidden">
                 <img
                   src={apiAssetUrl(post.coverImage) || localPosts[0]?.coverImage}
