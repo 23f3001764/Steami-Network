@@ -104,7 +104,7 @@ function BlackholeModel() {
     <primitive
       ref={ref}
       object={scene}
-      scale={1.8}
+      scale={1}
       position={[0, 0, 0]}
     />
   );
@@ -121,13 +121,32 @@ function BlackholeFallback() {
   );
 }
 
-// The full Three.js canvas section
+// The full Three.js canvas section — responsive height: 320 px on mobile, 520 px on md+
 function BlackholeSection({ isLight }: { isLight: boolean }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  const canvasHeight = isMobile ? 320 : 520;
+  // On mobile scale the model down so it fits without clipping
+  const modelScale   = isMobile ? 1.1 : 1.8;
+  // Pull the camera slightly closer on mobile so the model fills the frame
+  const cameraZ      = isMobile ? 4 : 5;
+
   return (
-    <section className="relative w-full" style={{ height: '520px' }}>
+    <section
+      className="relative w-full"
+      style={{ height: canvasHeight }}
+    >
       {/* Gradient fade top */}
       <div
-        className="absolute inset-x-0 top-0 h-24 z-10 pointer-events-none"
+        className="absolute inset-x-0 top-0 h-16 md:h-24 z-10 pointer-events-none"
         style={{
           background: isLight
             ? 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, transparent 100%)'
@@ -136,7 +155,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
       />
       {/* Gradient fade bottom */}
       <div
-        className="absolute inset-x-0 bottom-0 h-24 z-10 pointer-events-none"
+        className="absolute inset-x-0 bottom-0 h-16 md:h-24 z-10 pointer-events-none"
         style={{
           background: isLight
             ? 'linear-gradient(to top, rgba(255,255,255,1) 0%, transparent 100%)'
@@ -144,18 +163,18 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
         }}
       />
 
-      {/* Label */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center">
-        <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-steami-cyan/60">
+      {/* Label — smaller tracking on mobile */}
+      <div className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2 z-20 text-center px-3">
+        <p className="font-mono text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase text-steami-cyan/60 whitespace-nowrap">
           ◆ Gravitational Singularity
         </p>
       </div>
 
       {/* Canvas */}
       <Canvas
-        camera={{ position: [0, 0, 5], fov: 45 }}
+        camera={{ position: [0, 0, cameraZ], fov: isMobile ? 50 : 45 }}
         gl={{ antialias: true, alpha: true }}
-        style={{ background: 'transparent' }}
+        style={{ background: 'transparent', width: '100%', height: '100%' }}
       >
         <ambientLight intensity={0.3} />
         <pointLight position={[4, 4, 4]} intensity={1.2} color="#00d9ff" />
@@ -164,7 +183,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
         <Stars
           radius={60}
           depth={30}
-          count={1800}
+          count={isMobile ? 900 : 1800}
           factor={3}
           saturation={0}
           fade
@@ -172,7 +191,10 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
         />
 
         <Suspense fallback={null}>
-          <BlackholeModel />
+          {/* Pass dynamic scale via a wrapper group so BlackholeModel stays pure */}
+          <group scale={modelScale}>
+            <BlackholeModel />
+          </group>
           <OrbitControls
             enableZoom={false}
             enablePan={false}
@@ -185,7 +207,7 @@ function BlackholeSection({ isLight }: { isLight: boolean }) {
       </Canvas>
 
       {/* CC attribution (required by the CC-BY-4.0 license in license.txt) */}
-      <p className="absolute bottom-2 right-3 z-20 font-mono text-[9px] text-muted-foreground/30">
+      <p className="absolute bottom-2 right-3 z-20 font-mono text-[8px] md:text-[9px] text-muted-foreground/30">
         "Blackhole" by{' '}
         <a
           href="https://sketchfab.com/rubykamen"

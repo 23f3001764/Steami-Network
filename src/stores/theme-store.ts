@@ -10,7 +10,7 @@ interface ThemeState {
 
 export const useThemeStore = create<ThemeState>((set) => {
   const saved = (typeof window !== 'undefined' && localStorage.getItem('steami-theme')) as Theme | null;
-  const initial: Theme = saved === 'light' ? 'light' : 'dark';
+  const initial: Theme = saved === 'dark' ? 'dark' : 'light';
 
   // Apply immediately
   if (typeof document !== 'undefined') {

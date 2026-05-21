@@ -30,6 +30,13 @@ const emptySimulation = {
   description:'',caption:'',readTime:'10 min interactive',
   simulation_type:'custom',component_id:'',insights:'',tags:'',
 };
+const emptyIntelligence = {
+  id:'',article_id:'',title:'',topic:'',source:'',article_url:'',
+  matched_domains:'',
+  ai_summary:'',ai_key_points:'',ai_sentiment:'positive',
+  ai_sentiment_label:'neutral_news',ai_emoji:'',ai_confidence:'',
+  ai_tags:'',ai_domain:'',ai_reading_time_min:'',ai_article_url:'',
+};
 
 const lines = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean);
 const csv   = (s:string) => s.split(',').map(l=>l.trim()).filter(Boolean);
@@ -73,12 +80,13 @@ export default function ModerationPage() {
   const isAdmin     = user?.role==='admin';
   const canModerate = isAdmin||user?.role==='mod';
 
-  const [tab,setTab] = useState<'explainer'|'research'|'blog'|'simulation'|'builder'|'newsletter'>('explainer');
+  const [tab,setTab] = useState<'explainer'|'research'|'blog'|'simulation'|'builder'|'newsletter'|'intelligence'>('explainer');
 
   const [explainerForm, setExplainerForm] = useState(emptyExplainer);
   const [researchForm,  setResearchForm]  = useState(emptyResearch);
   const [blogForm,      setBlogForm]      = useState(emptyBlog);
   const [simForm,       setSimForm]       = useState(emptySimulation);
+  const [intelForm,     setIntelForm]     = useState(emptyIntelligence);
 
   const [editingId,   setEditingId]   = useState('');
   const [imageFile,   setImageFile]   = useState<File|null>(null);
@@ -92,10 +100,12 @@ export default function ModerationPage() {
   const rf = (k:keyof typeof emptyResearch)  => (v:string) => setResearchForm(f=>({...f,[k]:v}));
   const bf = (k:keyof typeof emptyBlog)      => (v:string) => setBlogForm(f=>({...f,[k]:v}));
   const sf = (k:keyof typeof emptySimulation)=> (v:string) => setSimForm(f=>({...f,[k]:v}));
+  const nf = (k:keyof typeof emptyIntelligence)=> (v:string) => setIntelForm(f=>({...f,[k]:v}));
 
   const resetAll = () => {
     setExplainerForm(emptyExplainer); setResearchForm(emptyResearch);
     setBlogForm(emptyBlog);           setSimForm(emptySimulation);
+    setIntelForm(emptyIntelligence);
     setEditingId(''); setImageFile(null); setGlbFile(null); setSnapshotB64('');
   };
 
@@ -107,8 +117,9 @@ export default function ModerationPage() {
       else if (tab==='research')   data = await api.content.cmsResearch();
       else if (tab==='simulation') data = await api.simulations.cmsList();
       else if (tab==='blog')       data = await api.content.cmsBlog();
+      else if (tab==='intelligence') data = await api.content.cmsIntelligence();
       else return;
-      setItems(Array.isArray(data)?data:data?.simulations??data?.items??data?.articles??data?.explainers??data?.posts??[]);
+      setItems(Array.isArray(data)?data:data?.simulations??data?.nodes??data?.items??data?.articles??data?.explainers??data?.posts??[]);
     } catch(err:any){setError(err.message||'Unable to load items');}
   };
 
@@ -185,6 +196,34 @@ export default function ModerationPage() {
         const tid=editingId||simForm.id;
         if(snapshotB64)await api.simulations.uploadSnapshot(tid,snapshotB64);
         if(glbFile)await api.simulations.uploadGlb(tid,glbFile);
+      } else if (tab==='intelligence') {
+        const aiInsight = {
+          summary:          intelForm.ai_summary||undefined,
+          key_points:       intelForm.ai_key_points?intelForm.ai_key_points.split('\n').map((l:string)=>l.trim()).filter(Boolean):undefined,
+          sentiment:        intelForm.ai_sentiment||undefined,
+          sentiment_label:  intelForm.ai_sentiment_label||undefined,
+          emoji:            intelForm.ai_emoji||undefined,
+          confidence:       intelForm.ai_confidence?parseFloat(intelForm.ai_confidence):undefined,
+          tags:             intelForm.ai_tags?intelForm.ai_tags.split(',').map((l:string)=>l.trim()).filter(Boolean):undefined,
+          domain:           intelForm.ai_domain||undefined,
+          reading_time_min: intelForm.ai_reading_time_min?parseInt(intelForm.ai_reading_time_min):undefined,
+          article_url:      intelForm.ai_article_url||undefined,
+        };
+        const node = {
+          id:              intelForm.id,
+          article_id:      intelForm.article_id,
+          title:           intelForm.title,
+          topic:           intelForm.topic||undefined,
+          source:          intelForm.source||undefined,
+          article_url:     intelForm.article_url||undefined,
+          matched_domains: intelForm.matched_domains?intelForm.matched_domains.split(',').map((l:string)=>l.trim()).filter(Boolean):[],
+          ai_insight:      aiInsight,
+        };
+        if(editingId) await api.content.updateIntelligenceNode(editingId, node);
+        else {
+          if(!intelForm.id||!intelForm.title){setError('ID and Title required.');return;}
+          await api.content.createIntelligenceNode(node);
+        }
       }
       setStatus('Saved successfully.'); resetAll(); loadItems();
     } catch(err:any){setError(err.message||'Save failed');}
@@ -199,6 +238,7 @@ export default function ModerationPage() {
       if(tab==='research')  full=await api.content.researchArticle(id);
       if(tab==='blog')      full=await api.content.blogPost(id);
       if(tab==='simulation')full=await api.simulations.cmsGet(id);
+      if(tab==='intelligence')full=await api.content.cmsIntelligenceNode(id);
     }catch(err:any){setError(err.message||'Could not load');setStatus('');return;}
     setEditingId(id);setImageFile(null);setGlbFile(null);setSnapshotB64('');
     if(tab==='explainer')setExplainerForm({
@@ -233,6 +273,18 @@ export default function ModerationPage() {
       insights:Array.isArray(full.insights)?full.insights.join('\n'):'',
       tags:Array.isArray(full.tags)?full.tags.join(', '):'',
     });
+    else if(tab==='intelligence'){const ai=full.ai_insight??{};setIntelForm({
+      id:full.id??id,article_id:full.article_id??'',title:full.title??'',
+      topic:full.topic??'',source:full.source??'',article_url:full.article_url??'',
+      matched_domains:Array.isArray(full.matched_domains)?full.matched_domains.join(', '):'',
+      ai_summary:ai.summary??'',
+      ai_key_points:Array.isArray(ai.key_points)?ai.key_points.join('\n'):'',
+      ai_sentiment:ai.sentiment??'positive',ai_sentiment_label:ai.sentiment_label??'neutral_news',
+      ai_emoji:ai.emoji??'',ai_confidence:ai.confidence!=null?String(ai.confidence):'',
+      ai_tags:Array.isArray(ai.tags)?ai.tags.join(', '):'',ai_domain:ai.domain??'',
+      ai_reading_time_min:ai.reading_time_min!=null?String(ai.reading_time_min):'',
+      ai_article_url:ai.article_url??'',
+    });}
     setStatus('Loaded for editing.');
   };
 
@@ -242,6 +294,7 @@ export default function ModerationPage() {
     if(tab==='research')  await api.content.deleteResearch(id);
     if(tab==='blog')      await api.content.deleteBlogPost(id);
     if(tab==='simulation')await api.simulations.delete(id);
+    if(tab==='intelligence')await api.content.deleteIntelligenceNode(id);
     setStatus('Deleted.'); loadItems();
   };
 
@@ -268,12 +321,12 @@ export default function ModerationPage() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-2 mb-6">
-        {(['explainer','research','blog','simulation','builder','newsletter'] as const).map(t=>(
+        {(['explainer','research','blog','simulation','intelligence','builder','newsletter'] as const).map(t=>(
           <button key={t}
             onClick={()=>{setTab(t);resetAll();setStatus('');setError('');}}
             className={`steami-btn text-[11px] ${tab===t?'steami-btn-gold':''}`}
           >
-            {t==='newsletter'?'📰 Newsletter':t==='blog'?'Intelligence':t==='simulation'?'🧊 Simulation':t==='builder'?'🔬 3D Builder':t}
+            {t==='newsletter'?'📰 Newsletter':t==='blog'?'Intelligence':t==='simulation'?'🧊 Simulation':t==='builder'?'🔬 3D Builder':t==='intelligence'?'🌐 Live Network':t}
           </button>
         ))}
       </div>
@@ -369,6 +422,49 @@ export default function ModerationPage() {
                   <input type="file" accept=".glb,.gltf,.obj,.fbx,.stl" onChange={e=>setGlbFile(e.target.files?.[0]??null)}
                     className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
                   {glbFile&&<p className="text-[11px] text-steami-green">Selected: {glbFile.name}</p>}
+                </div>
+              </>}
+
+
+
+              {tab==='intelligence'&&<>
+                <Field label="ID" value={intelForm.id} onChange={nf('id')} required disabled={!!editingId} placeholder="e.g. node-001"/>
+                <Field label="Article ID" value={intelForm.article_id} onChange={nf('article_id')} required placeholder="Source article identifier"/>
+                <Field label="Title" value={intelForm.title} onChange={nf('title')} required/>
+                <Field label="Topic" value={intelForm.topic} onChange={nf('topic')} placeholder="e.g. QUANTUM PHYSICS"/>
+                <Field label="Source" value={intelForm.source} onChange={nf('source')} placeholder="e.g. Nature, MIT News"/>
+                <Field label="Article URL" value={intelForm.article_url} onChange={nf('article_url')} placeholder="https://..."/>
+                <Field label="Matched Domains (comma-separated)" value={intelForm.matched_domains} onChange={nf('matched_domains')} placeholder="PHYSICS, AI"/>
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">AI Insight Block</p>
+                  <TextArea label="Summary" value={intelForm.ai_summary} onChange={nf('ai_summary')} rows={3}/>
+                  <TextArea label="Key Points" value={intelForm.ai_key_points} onChange={nf('ai_key_points')} rows={3} hint="One per line."/>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Sentiment</label>
+                      <select value={intelForm.ai_sentiment} onChange={e=>nf('ai_sentiment')(e.target.value)}
+                        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]">
+                        <option value="positive">Positive</option>
+                        <option value="negative">Negative</option>
+                        <option value="neutral">Neutral</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Sentiment Label</label>
+                      <select value={intelForm.ai_sentiment_label} onChange={e=>nf('ai_sentiment_label')(e.target.value)}
+                        className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]">
+                        <option value="good_news">Good News</option>
+                        <option value="bad_news">Bad News</option>
+                        <option value="neutral_news">Neutral News</option>
+                      </select>
+                    </div>
+                  </div>
+                  <Field label="Emoji" value={intelForm.ai_emoji} onChange={nf('ai_emoji')} placeholder="⚛️"/>
+                  <Field label="Confidence (0–1)" value={intelForm.ai_confidence} onChange={nf('ai_confidence')} placeholder="0.92"/>
+                  <Field label="Tags (comma-separated)" value={intelForm.ai_tags} onChange={nf('ai_tags')} placeholder="quantum, computing"/>
+                  <Field label="Domain" value={intelForm.ai_domain} onChange={nf('ai_domain')} placeholder="QUANTUM PHYSICS"/>
+                  <Field label="Reading Time (min)" value={intelForm.ai_reading_time_min} onChange={nf('ai_reading_time_min')} placeholder="4"/>
+                  <Field label="AI Article URL" value={intelForm.ai_article_url} onChange={nf('ai_article_url')} placeholder="https://..."/>
                 </div>
               </>}
 

@@ -70,6 +70,54 @@ export async function apiRequest<T = any>(path: string, options: ApiOptions = {}
   return data as T;
 }
 
+/**
+ * Download a CSV blob from an authenticated endpoint and trigger a browser save.
+ * Returns the total row count from the X-Total-Rows response header (or null).
+ */
+export async function apiDownloadCsv(
+  path: string,
+  filename: string
+): Promise<{ rowCount: number | null }> {
+  const token = getStoredToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new ApiError(`CSV download failed: ${response.status}`, response.status, text);
+  }
+
+  const rowCount = response.headers.get("X-Total-Rows");
+  const blob = await response.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  return { rowCount: rowCount ? Number(rowCount) : null };
+}
+
+/**
+ * Fetch CSV text from an authenticated endpoint without downloading.
+ * Used to preview the first N rows in the UI.
+ */
+export async function apiFetchCsvText(path: string): Promise<string> {
+  const token = getStoredToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  if (!response.ok) {
+    throw new ApiError(`CSV fetch failed: ${response.status}`, response.status, null);
+  }
+  return response.text();
+}
+
 export const api = {
   health: () => apiRequest("/health"),
 
@@ -263,20 +311,11 @@ export const api = {
     cmsBlogPost: (id: string) => apiRequest(`/api/cms/blog/${encodeURIComponent(id)}`),
   },
 
-  // ── Simulations ─────────────────────────────────────────────────────────────
-  // GET  endpoints: PUBLIC — no auth required (every user can fetch & view)
-  // POST / PUT / DELETE: MOD or ADMIN only (enforced on the backend)
-  // ────────────────────────────────────────────────────────────────────────────
   simulations: {
-    /** GET /api/simulations — public list, optional field / simulation_type filter */
     list: (params?: { field?: string; simulation_type?: string }) =>
       apiRequest(`/api/simulations${buildQuery(params)}`),
-
-    /** GET /api/simulations/{id} — public single fetch */
     get: (id: string) =>
       apiRequest(`/api/simulations/${encodeURIComponent(id)}`),
-
-    /** POST /api/simulations — MOD/ADMIN create (JSON body) */
     create: (body: {
       id:              string;
       title:           string;
@@ -290,30 +329,15 @@ export const api = {
       insights?:       string[];
       tags?:           string[];
     }) => apiRequest("/api/simulations", { method: "POST", body }),
-
-    /** PUT /api/simulations/{id} — MOD/ADMIN update */
     update: (id: string, body: Record<string, unknown>) =>
       apiRequest(`/api/simulations/${encodeURIComponent(id)}`, { method: "PUT", body }),
-
-    /** DELETE /api/simulations/{id} — ADMIN only */
     delete: (id: string) =>
       apiRequest(`/api/simulations/${encodeURIComponent(id)}`, { method: "DELETE" }),
-
-    /**
-     * POST /api/simulations/{id}/snapshot — MOD/ADMIN
-     * Uploads a base64 PNG captured from canvas.toDataURL() to Cloudinary.
-     * Pass the raw data-URI string: "data:image/png;base64,<…>"
-     */
     uploadSnapshot: (id: string, imageData: string) =>
       apiRequest(`/api/simulations/${encodeURIComponent(id)}/snapshot`, {
         method: "POST",
         body: { image_data: imageData },
       }),
-
-    /**
-     * POST /api/simulations/{id}/glb — MOD/ADMIN (multipart)
-     * Uploads a raw .glb / .gltf / .obj file to Cloudinary as a raw asset.
-     */
     uploadGlb: (id: string, file: File) => {
       const formData = new FormData();
       formData.append("file", file);
@@ -322,15 +346,8 @@ export const api = {
         formData,
       });
     },
-
-    /** POST /api/simulations/seed — ADMIN only */
     seed: () => apiRequest("/api/simulations/seed", { method: "POST" }),
-
-    // ── CMS helpers (MOD/ADMIN) ──────────────────────────────────────────────
-    /** GET /api/cms/simulations — slim list for CMS table */
     cmsList: () => apiRequest("/api/cms/simulations"),
-
-    /** GET /api/cms/simulations/{id} — full doc for edit form */
     cmsGet: (id: string) => apiRequest(`/api/cms/simulations/${encodeURIComponent(id)}`),
   },
 
@@ -344,13 +361,93 @@ export const api = {
   },
 
   dashboard: {
-    event: (body: { popup_type: string; popup_id: string; popup_title?: string }) => apiRequest("/api/dashboard/event", { method: "POST", body }),
+    /** POST /api/dashboard/event — log a popup open (v2: includes keywords + subject in response) */
+    event: (body: {
+      popup_type: string;
+      popup_id: string;
+      popup_title?: string;
+      read_duration_seconds?: number;
+      device_type?: string;
+    }) => apiRequest("/api/dashboard/event", { method: "POST", body }),
+
+    /** GET /api/dashboard/me — own activity summary */
     me: () => apiRequest("/api/dashboard/me"),
+
+    /** GET /api/dashboard/subject-intelligence */
     subjectIntelligence: (params?: { limit?: number }) =>
       apiRequest(`/api/dashboard/subject-intelligence${buildQuery(params)}`),
+
+    /** GET /api/dashboard/admin — platform-wide stats */
     admin: () => apiRequest("/api/dashboard/admin"),
-    events: (params?: { limit?: number; popup_type?: string; uid_filter?: string }) =>
-      apiRequest(`/api/dashboard/admin/events${buildQuery(params)}`),
+
+    /**
+     * GET /api/dashboard/admin/events — raw event log
+     * New filters in v2: subject, date_from, date_to
+     */
+    events: (params?: {
+      limit?: number;
+      popup_type?: string;
+      uid_filter?: string;
+      subject?: string;
+      date_from?: string;
+      date_to?: string;
+    }) => apiRequest(`/api/dashboard/admin/events${buildQuery(params)}`),
+
+    /**
+     * GET /api/dashboard/admin/export-csv — download enriched events as CSV.
+     * Triggers a browser file-save dialog. Returns { rowCount }.
+     * Supports the same filters as /admin/events.
+     */
+    exportCsv: (
+      params: {
+        popup_type?: string;
+        uid_filter?: string;
+        subject?: string;
+        date_from?: string;
+        date_to?: string;
+        limit?: number;
+      } = {},
+      filename?: string
+    ) => {
+      const qs = buildQuery(params);
+      const today = new Date().toISOString().slice(0, 10);
+      return apiDownloadCsv(
+        `/api/dashboard/admin/export-csv${qs}`,
+        filename ?? `steami_events_${today}.csv`
+      );
+    },
+
+    /**
+     * GET /api/dashboard/admin/export-csv — preview only (no file save).
+     * Returns raw CSV text so the UI can render a table.
+     */
+    previewCsv: (
+      params: {
+        popup_type?: string;
+        uid_filter?: string;
+        subject?: string;
+        date_from?: string;
+        date_to?: string;
+        limit?: number;
+      } = {}
+    ) => {
+      const qs = buildQuery(params);
+      return apiFetchCsvText(`/api/dashboard/admin/export-csv${qs}`);
+    },
+
+    /**
+     * GET /api/dashboard/admin/user-profiles — per-user interest profiles.
+     * Used for recommendation model seeding.
+     */
+    userProfiles: (params?: { limit?: number }) =>
+      apiRequest(`/api/dashboard/admin/user-profiles${buildQuery(params)}`),
+
+    /**
+     * GET /api/dashboard/admin/content-heatmap — content × subject matrix.
+     * Used for recommendation model seeding.
+     */
+    contentHeatmap: (params?: { limit?: number }) =>
+      apiRequest(`/api/dashboard/admin/content-heatmap${buildQuery(params)}`),
   },
 
   security: {
