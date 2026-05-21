@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Cpu, Brain, Zap, Network, Search, LineChart, Atom, Dna,
   Microscope, FlaskConical, Orbit, Waves, BrainCircuit,
-  Lock, LogIn, Loader2, RefreshCw, ChevronRight,
+  Loader2, RefreshCw, ChevronRight, LogIn,
 } from 'lucide-react';
 import { TickerTrack } from './TickerTrack';
 import { TickerItem } from './TickerItem';
@@ -56,103 +56,7 @@ const SENTIMENT_TREND = {
   neutral_news: { isUp: true,  symbol: '→' },
 } as const;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Fallback static signals (shown when logged out)
-// ─────────────────────────────────────────────────────────────────────────────
 
-const STATIC_SIGNALS = [
-  { icon: Brain,       label: "AI Research Signals",                trend: { value: "28%",        isUp: true  } },
-  { icon: Atom,        label: "Quantum Intelligence Mapping Active", trend: { value: "Active",     isUp: true  } },
-  { icon: Network,     label: "New Scientific Relationship Detected",trend: { value: "Live",       isUp: true  } },
-  { icon: LineChart,   label: "Knowledge Graph Expanded",           trend: { value: "+1.2k Nodes", isUp: true  } },
-  { icon: Search,      label: "Emerging Tech Clusters Identified",   trend: { value: "9 detected", isUp: true  } },
-  { icon: Zap,         label: "STEM Intelligence Stream Updated",    trend: { value: "2ms ago",    isUp: true  } },
-  { icon: Dna,         label: "Biotech Synthesis Pipeline Online",   trend: { value: "Synced",     isUp: true  } },
-  { icon: Cpu,         label: "Neural Network Density Increased",    trend: { value: "14%",        isUp: true  } },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Auth Gate — shown inside the ticker section when not logged in
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AuthGate() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative z-20 flex items-center justify-center gap-0 mt-3"
-    >
-      {/* Blurred ticker preview behind gate */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none"
-        style={{ filter: 'blur(3px)', opacity: 0.35 }}>
-        <TickerTrack speed={55}>
-          {STATIC_SIGNALS.map((s, i) => (
-            <TickerItem key={i} icon={s.icon} label={s.label} trend={s.trend} />
-          ))}
-        </TickerTrack>
-      </div>
-
-      {/* Gate card */}
-      <div
-        className="relative z-10 flex flex-col items-center gap-3 px-8 py-5 rounded-2xl text-center"
-        style={{
-          background: 'rgba(3,8,20,0.82)',
-          border: '1px solid rgba(0,217,255,0.18)',
-          backdropFilter: 'blur(18px)',
-          boxShadow: '0 0 60px rgba(0,217,255,0.07), 0 8px 40px rgba(0,0,0,0.4)',
-        }}
-      >
-        <div className="relative">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.25)' }}>
-            <Lock className="w-4 h-4 text-cyan-400" />
-          </div>
-          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyan-500 animate-ping" />
-        </div>
-
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cyan-400/70 mb-1">
-            Live Intelligence Feed
-          </p>
-          <p className="font-serif text-[15px] font-bold text-white/90">
-            Sign in to unlock real-time signals
-          </p>
-          <p className="text-[12px] text-slate-400 mt-1 max-w-[280px]">
-            AI-enriched insights from the STEM intelligence network, updated live.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 mt-1">
-          <Link
-            to="/login"
-            className="flex items-center gap-2 px-5 py-2 rounded-xl font-mono text-[11px] uppercase tracking-widest transition-all duration-200 hover:scale-105"
-            style={{
-              background: 'rgba(0,217,255,0.12)',
-              border: '1px solid rgba(0,217,255,0.35)',
-              color: '#00d9ff',
-              boxShadow: '0 0 20px rgba(0,217,255,0.1)',
-            }}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            Sign In
-          </Link>
-          <Link
-            to="/signup"
-            className="flex items-center gap-1.5 px-5 py-2 rounded-xl font-mono text-[11px] uppercase tracking-widest transition-all duration-200 hover:opacity-80"
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.6)',
-            }}
-          >
-            Register
-            <ChevronRight className="w-3 h-3" />
-          </Link>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live Feed Full-Screen Overlay — shown when user clicks "View Feed"
@@ -350,7 +254,7 @@ export const IntelligenceTicker: React.FC = () => {
   const user      = useAuthStore(s => s.user);
   const isAuthed  = !!user;
 
-  const [signals,     setSignals]     = useState(STATIC_SIGNALS as any[]);
+  const [signals,     setSignals]     = useState<any[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [showFeed,    setShowFeed]    = useState(false);
@@ -358,67 +262,64 @@ export const IntelligenceTicker: React.FC = () => {
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedError,   setFeedError]   = useState<string | null>(null);
 
-  // Fetch live signals for the ticker strip when logged in
+  // Fetch live signals from public API — no auth required
   useEffect(() => {
-    if (!isAuthed) { setSignals(STATIC_SIGNALS as any[]); return; }
     setLoading(true);
     setError(null);
-    api.insights
-      .list()
+    api.content
+      .intelligenceNodes({ limit: 100 })
       .then((data: any) => {
         const list: InsightItem[] = Array.isArray(data?.insights) ? data.insights
+          : Array.isArray(data?.nodes) ? data.nodes
           : Array.isArray(data) ? data : [];
-        if (list.length === 0) { setSignals(STATIC_SIGNALS as any[]); return; }
-        const mapped = list.slice(0, 16).map((item, idx) => {
+        const mapped = list.slice(0, 20).map((item: any, idx: number) => {
           const ai      = item.ai_insight;
+          // Support both simplified schema (heading/value/direction/color)
+          // and full schema (title / ai_insight)
+          const label   = item.heading || item.title || '';
+          const val     = item.value || ai?.domain || item.topic || item.source || '';
           const sentKey = (ai?.sentiment_label ?? 'neutral_news') as keyof typeof SENTIMENT_TREND;
           const trend   = SENTIMENT_TREND[sentKey] ?? SENTIMENT_TREND.neutral_news;
           return {
             icon:  getIcon(idx),
-            label: item.title,
-            trend: {
-              value: ai?.domain || item.topic || item.source || 'Signal',
-              isUp:  trend.isUp,
-            },
-            raw: item,
+            label,
+            trend: { value: val, isUp: trend.isUp },
+            raw:   item,
           };
         });
         setSignals(mapped);
-        setFeedItems(list);
+        // Pre-populate feed items too (same data, avoids a second request)
+        if (isAuthed) setFeedItems(list);
       })
-      .catch((err: any) => {
-        setError(err?.message ?? 'Failed to load signals');
-        setSignals(STATIC_SIGNALS as any[]);
-      })
+      .catch((err: any) => setError(err?.message ?? 'Failed to load signals'))
       .finally(() => setLoading(false));
-  }, [isAuthed]);
+  }, []);
 
-  // Load full feed when modal opens
+  // Open full feed — data is already loaded from the public ticker fetch
   const openFeed = () => {
     setShowFeed(true);
-    if (feedItems.length > 0) return; // already loaded
-    setFeedLoading(true);
-    setFeedError(null);
-    api.insights
-      .list()
-      .then((data: any) => {
-        const list: InsightItem[] = Array.isArray(data?.insights) ? data.insights
-          : Array.isArray(data) ? data : [];
-        setFeedItems(list);
-      })
-      .catch((err: any) => setFeedError(err?.message ?? 'Failed to load feed'))
-      .finally(() => setFeedLoading(false));
   };
 
   const refreshFeed = () => {
     setFeedLoading(true);
     setFeedError(null);
-    api.insights
-      .list()
+    api.content
+      .intelligenceNodes({ limit: 100 })
       .then((data: any) => {
         const list: InsightItem[] = Array.isArray(data?.insights) ? data.insights
+          : Array.isArray(data?.nodes) ? data.nodes
           : Array.isArray(data) ? data : [];
         setFeedItems(list);
+        // Update ticker signals too
+        const mapped = list.slice(0, 20).map((item: any, idx: number) => {
+          const ai    = item.ai_insight;
+          const label = item.heading || item.title || '';
+          const val   = item.value || ai?.domain || item.topic || item.source || '';
+          const sentKey = (ai?.sentiment_label ?? 'neutral_news') as keyof typeof SENTIMENT_TREND;
+          const trend = SENTIMENT_TREND[sentKey] ?? SENTIMENT_TREND.neutral_news;
+          return { icon: getIcon(idx), label, trend: { value: val, isUp: trend.isUp }, raw: item };
+        });
+        setSignals(mapped);
       })
       .catch((err: any) => setFeedError(err?.message ?? 'Failed to load feed'))
       .finally(() => setFeedLoading(false));
@@ -443,34 +344,54 @@ export const IntelligenceTicker: React.FC = () => {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-[10px] uppercase tracking-[0.2em] font-medium text-slate-500 dark:text-slate-400">
-              Signal Synchronicity: {isAuthed ? (error ? 'Error' : loading ? 'Syncing…' : 'Optimal') : 'Locked'}
+              Signal Synchronicity: {error ? 'Error' : loading ? 'Syncing…' : 'Optimal'}
             </div>
             {/* View full feed button — auth required */}
-            {isAuthed && (
-              <button
-                onClick={openFeed}
-                className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all hover:scale-105"
-                style={{
-                  background: 'rgba(0,217,255,0.08)',
-                  border: '1px solid rgba(0,217,255,0.2)',
-                  color: '#00d9ff',
-                }}
-              >
-                View Feed
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!isAuthed) {
+                  window.dispatchEvent(new CustomEvent('steami:openAuth'));
+                } else {
+                  openFeed();
+                }
+              }}
+              className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all hover:scale-105"
+              style={{
+                background: 'rgba(0,217,255,0.08)',
+                border: '1px solid rgba(0,217,255,0.2)',
+                color: '#00d9ff',
+              }}
+            >
+              {isAuthed ? 'View Feed' : 'Sign In'}
+              {isAuthed ? <ChevronRight className="w-3 h-3" /> : <LogIn className="w-3 h-3" />}
+            </button>
           </div>
         </div>
 
-        {/* Ticker OR auth gate */}
-        {isAuthed ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-          >
+        {/* Ticker — always public, data from API */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        >
+          {loading ? (
+            /* Skeleton pill row while API loads */
+            <div className="flex gap-4 px-4 overflow-hidden" style={{ opacity: 0.35 }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 h-12 rounded-full animate-pulse"
+                  style={{ width: 220 + (i % 3) * 40, background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.1)' }} />
+              ))}
+            </div>
+          ) : error ? (
+            <p className="text-center font-mono text-[11px] text-red-400/60 tracking-wider py-3">
+              Signal feed unavailable — {error}
+            </p>
+          ) : signals.length === 0 ? (
+            <p className="text-center font-mono text-[11px] text-muted-foreground/40 tracking-wider py-3">
+              No signals in network
+            </p>
+          ) : (
             <TickerTrack speed={45}>
               {signals.map((signal, index) => (
                 <TickerItem
@@ -481,13 +402,8 @@ export const IntelligenceTicker: React.FC = () => {
                 />
               ))}
             </TickerTrack>
-          </motion.div>
-        ) : (
-          /* Not logged in — show blurred ticker + login gate overlay */
-          <div className="relative" style={{ minHeight: 64 }}>
-            <AuthGate />
-          </div>
-        )}
+          )}
+        </motion.div>
 
         {/* Atmospheric glow */}
         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-1/2 h-20 bg-cyan-500/5 blur-[100px] rounded-full pointer-events-none" />

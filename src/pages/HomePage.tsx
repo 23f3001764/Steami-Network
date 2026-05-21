@@ -52,8 +52,8 @@ import { useThemeStore }      from '@/stores/theme-store';
 import { api }                from '@/lib/api';
 import {
   Search, Layers, ArrowRight, ChevronDown,
-  BookOpen, Loader2, Lock, LogIn, RefreshCw,
-  Sparkles, Brain, Atom, Network, Zap, Dna, Cpu,
+  BookOpen, Loader2,
+  Brain, Atom, Network, Zap, Dna, Cpu,
   Microscope, FlaskConical, Orbit, Waves, BrainCircuit, LineChart,
 } from 'lucide-react';
 
@@ -219,147 +219,64 @@ const ICON_POOL_HOME = [Brain, Atom, Network, LineChart, Zap, Dna, Cpu, Microsco
 const getCardIcon = (idx: number) => ICON_POOL_HOME[idx % ICON_POOL_HOME.length];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Auth Gate — shown when user is not logged in
+// Inline auth prompt — replaces the full gate card
 // ─────────────────────────────────────────────────────────────────────────────
 
 function InsightsAuthGate({ isLight }: { isLight: boolean }) {
-  // Ghost card previews (blurred behind the gate)
-  const ghostCards = [
-    { label: 'Quantum Breakthrough in Error Correction', domain: 'PHYSICS',    sent: 'good_news'    as const, emoji: '⚛️' },
-    { label: 'CRISPR Expands to New Genetic Targets',    domain: 'BIOLOGY',    sent: 'good_news'    as const, emoji: '🧬' },
-    { label: 'Neural Scaling Laws Face New Challenge',   domain: 'AI',         sent: 'neutral_news' as const, emoji: '🤖' },
-    { label: 'Battery Energy Density Record Broken',     domain: 'ENERGY',     sent: 'good_news'    as const, emoji: '⚡' },
-  ];
+  const openAuth = () => window.dispatchEvent(new CustomEvent('steami:openAuth'));
 
   return (
-    <div className="relative">
-      {/* Blurred ghost cards */}
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 select-none pointer-events-none"
-        style={{ filter: 'blur(4px)', opacity: 0.35 }}
-      >
-        {ghostCards.map((g, i) => {
-          const cfg = SENTIMENT_CONFIG[g.sent];
-          return (
-            <div key={i} className="flex flex-col rounded-xl overflow-hidden"
-              style={{
-                background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(8,16,38,0.82)',
-                border: isLight ? '1px solid rgba(147,197,253,0.25)' : `1px solid ${cfg.dot}22`,
-              }}>
-              <div className="h-[2px]" style={{ background: `linear-gradient(90deg, ${cfg.dot} 0%, transparent 100%)` }} />
-              <div className="flex items-center justify-center py-6"
-                style={{ background: cfg.bg, height: 90 }}>
-                <span style={{ fontSize: 36 }}>{g.emoji}</span>
-              </div>
-              <div className="p-4 flex flex-col gap-2">
-                <span className="font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 rounded-full w-fit"
-                  style={{ background: `${cfg.dot}18`, color: cfg.text }}>{g.domain}</span>
-                <div className="h-4 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.8)' : 'rgba(30,41,59,0.6)', width: '85%' }} />
-                <div className="h-3 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.5)' : 'rgba(30,41,59,0.4)', width: '100%' }} />
-                <div className="h-3 rounded" style={{ background: isLight ? 'rgba(226,232,240,0.5)' : 'rgba(30,41,59,0.4)', width: '70%' }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Frosted lock gate */}
-      <div className="absolute inset-0 flex items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 12 }}
-          whileInView={{ opacity: 1, scale: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
-          className="flex flex-col items-center gap-5 px-8 py-8 rounded-2xl text-center max-w-md w-full"
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5 rounded-2xl mb-8"
+      style={{
+        background: isLight ? 'rgba(37,99,235,0.04)' : 'rgba(0,217,255,0.04)',
+        border: isLight ? '1px solid rgba(37,99,235,0.14)' : '1px solid rgba(0,217,255,0.12)',
+      }}
+    >
+      {/* Left: icon + text */}
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={{
-            background: isLight
-              ? 'rgba(255,255,255,0.92)'
-              : 'rgba(3,8,20,0.88)',
-            border: isLight
-              ? '1px solid rgba(37,99,235,0.2)'
-              : '1px solid rgba(0,217,255,0.18)',
-            backdropFilter: 'blur(24px)',
-            boxShadow: isLight
-              ? '0 20px 60px rgba(37,99,235,0.08), 0 4px 20px rgba(0,0,0,0.06)'
-              : '0 0 80px rgba(0,217,255,0.06), 0 20px 60px rgba(0,0,0,0.5)',
-          }}
-        >
-          {/* Pulsing lock icon */}
-          <div className="relative">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{
-                background: isLight ? 'rgba(37,99,235,0.08)' : 'rgba(0,217,255,0.08)',
-                border: isLight ? '1px solid rgba(37,99,235,0.2)' : '1px solid rgba(0,217,255,0.25)',
-              }}>
-              <Lock className="w-6 h-6" style={{ color: isLight ? '#2563eb' : '#00d9ff' }} />
-            </div>
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full animate-ping"
-              style={{ background: isLight ? '#2563eb' : '#00d9ff', opacity: 0.6 }} />
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full"
-              style={{ background: isLight ? '#2563eb' : '#00d9ff' }} />
-          </div>
-
-          {/* Text */}
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] mb-2"
-              style={{ color: isLight ? '#2563eb' : '#00d9ff', opacity: 0.7 }}>
-              ◆ Live Intelligence Feed
-            </p>
-            <h3 className="font-serif text-[20px] font-bold mb-2"
-              style={{ color: isLight ? '#0f172a' : '#f1f5f9' }}>
-              Sign in to unlock AI Insights
-            </h3>
-            <p className="text-[13px] leading-relaxed"
-              style={{ color: isLight ? '#475569' : '#94a3b8' }}>
-              Access real-time AI-generated insights from the latest STEM news — curated, analysed and updated continuously.
-            </p>
-          </div>
-
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 justify-center">
-            {['AI Summaries', 'Key Points', 'Sentiment Analysis', 'Domain Filters'].map(f => (
-              <span key={f}
-                className="font-mono text-[10px] tracking-wider px-3 py-1 rounded-full"
-                style={{
-                  background: isLight ? 'rgba(37,99,235,0.07)' : 'rgba(0,217,255,0.07)',
-                  border: isLight ? '1px solid rgba(37,99,235,0.15)' : '1px solid rgba(0,217,255,0.15)',
-                  color: isLight ? '#2563eb' : '#00d9ff',
-                }}>
-                <Sparkles className="w-2.5 h-2.5 inline mr-1 opacity-70" />
-                {f}
-              </span>
-            ))}
-          </div>
-
-          {/* CTA buttons */}
-          <div className="flex gap-3 w-full">
-            <Link to="/login" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-mono text-[12px] uppercase tracking-widest transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
-              style={{
-                background: isLight ? '#2563eb' : 'rgba(0,217,255,0.12)',
-                border: isLight ? 'none' : '1px solid rgba(0,217,255,0.35)',
-                color: isLight ? '#fff' : '#00d9ff',
-                boxShadow: isLight ? '0 4px 20px rgba(37,99,235,0.25)' : '0 0 24px rgba(0,217,255,0.1)',
-              }}>
-              <LogIn className="w-3.5 h-3.5" />
-              Sign In
-            </Link>
-            <Link to="/signup" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-mono text-[12px] uppercase tracking-widest transition-all duration-200 hover:opacity-80"
-              style={{
-                background: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
-                border: isLight ? '1px solid rgba(15,23,42,0.12)' : '1px solid rgba(255,255,255,0.1)',
-                color: isLight ? '#475569' : 'rgba(255,255,255,0.55)',
-              }}>
-              Register
-            </Link>
-          </div>
-        </motion.div>
+            background: isLight ? 'rgba(37,99,235,0.08)' : 'rgba(0,217,255,0.08)',
+            border: isLight ? '1px solid rgba(37,99,235,0.18)' : '1px solid rgba(0,217,255,0.18)',
+          }}>
+          <Brain className="w-4 h-4" style={{ color: isLight ? '#2563eb' : '#00d9ff' }} />
+        </div>
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-wider mb-0.5"
+            style={{ color: isLight ? '#2563eb' : '#00d9ff', opacity: 0.75 }}>
+            Live Intelligence Feed — Members Only
+          </p>
+          <p className="text-[13px]" style={{ color: isLight ? '#475569' : '#94a3b8' }}>
+            Sign in to access real-time AI insights: summaries, sentiment analysis, domain filters &amp; more.
+          </p>
+        </div>
       </div>
-    </div>
+
+      {/* Right: CTA */}
+      <button
+        onClick={openAuth}
+        className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-[11px] uppercase tracking-widest transition-all duration-200 hover:scale-105"
+        style={{
+          background: isLight ? '#2563eb' : 'rgba(0,217,255,0.1)',
+          border: isLight ? 'none' : '1px solid rgba(0,217,255,0.3)',
+          color: isLight ? '#fff' : '#00d9ff',
+          boxShadow: isLight ? '0 4px 16px rgba(37,99,235,0.25)' : '0 0 20px rgba(0,217,255,0.08)',
+        }}
+      >
+        Sign In to Unlock
+      </button>
+    </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Intelligence Archive Section — GET /api/insights (auth required)
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 8;
@@ -450,9 +367,10 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
               Intelligence Feed
             </h2>
             <p className="text-[16px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              {isAuthed
-                ? <>AI-generated insights from the latest STEM news — updated in real-time.{filtered.length > 0 && <span className="ml-2 font-mono text-steami-cyan text-[13px]">{filtered.length} insights</span>}</>
-                : 'Real-time AI insights from the STEM intelligence network. Sign in to access the full feed.'}
+              AI-generated insights from the latest STEM news — updated in real-time.
+              {isAuthed && filtered.length > 0 && (
+                <span className="ml-2 font-mono text-steami-cyan text-[13px]">{filtered.length} insights</span>
+              )}
             </p>
           </div>
           {isAuthed && (

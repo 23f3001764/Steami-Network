@@ -206,6 +206,14 @@ export function SteamiNav() {
     }
   };
 
+  // Global custom-event hook so any component can open the auth modal
+  // by dispatching:  window.dispatchEvent(new CustomEvent('steami:openAuth'))
+  useEffect(() => {
+    const handler = () => setAuthOpen(true);
+    window.addEventListener('steami:openAuth', handler);
+    return () => window.removeEventListener('steami:openAuth', handler);
+  }, []);
+
   const openSubscribeModal = () => {
     setNlMode('subscribe');
     setNlOpen(true);
