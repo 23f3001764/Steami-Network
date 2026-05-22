@@ -98,8 +98,9 @@ export function SteamiNav() {
   const notifPanelRef                   = useRef<HTMLDivElement>(null);
   const notifPollerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Nav links — HOME intentionally removed; STEAMI logo IS the home link ───
+  // ── Nav links — Home option added as the first nav option ───
   const navLinks = [
+    { path: '/',            label: 'HOME' },
     { path: '/explainers',  label: 'EXPLAINERS' },
     { path: '/blog',        label: 'INTELLIGENCE' },
     { path: '/research',    label: 'RESEARCH' },
@@ -700,22 +701,6 @@ export function SteamiNav() {
 
               {/* Nav links */}
               <div className="flex flex-col gap-1">
-                {/* Home link — only visible in mobile menu, points to "/" */}
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.08, duration: 0.3 }}
-                >
-                  <Link
-                    to="/"
-                    onClick={closeMenu}
-                    className={`block font-mono text-[15px] sm:text-[17px] tracking-[0.08em] sm:tracking-[0.12em] uppercase py-2.5 px-3 rounded-lg transition-colors break-words ${
-                      location.pathname === '/' ? 'text-steami-cyan bg-accent/10' : 'text-foreground/70 hover:text-foreground hover:bg-accent/5'
-                    }`}
-                  >
-                    HOME
-                  </Link>
-                </motion.div>
 
                 {navLinks.map((link, i) => {
                   const isActive = location.pathname === link.path;

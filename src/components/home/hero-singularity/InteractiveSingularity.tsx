@@ -132,7 +132,7 @@ export const InteractiveSingularity = () => {
       }
 
       ringsRef.current = ringRadii.map((radius, i) => 
-        new Ring(radius, Math.floor(100 * particleMultiplier), i)
+        new Ring(radius, Math.floor(300 * particleMultiplier), i)
       );
     };
 
@@ -249,12 +249,7 @@ export const InteractiveSingularity = () => {
           }`} />
         </div>
 
-        <div 
-          className={`absolute w-[150%] h-[1px] md:h-[2px] transition-all duration-1000 blur-[1px] rotate-[25deg] ${
-            isLight ? 'bg-gradient-to-r from-transparent via-steami-gold to-transparent' : 'bg-gradient-to-r from-transparent via-steami-cyan to-transparent'
-          }`}
-          style={{ opacity: 0.6 }}
-        />
+
         
         <div 
           className={`absolute w-[110%] h-[110%] rounded-full border transition-all duration-1000 blur-[2px] animate-pulse ${

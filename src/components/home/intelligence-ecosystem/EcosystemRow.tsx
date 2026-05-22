@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ReactNode, useRef, useState, useEffect } from 'react';
+import { AnimatedCardWrapper } from './AnimatedCardWrapper';
 
 interface EcosystemRowProps {
   title: string;
@@ -124,20 +125,23 @@ export const EcosystemRow = ({ title, viewAllPath, children, index }: EcosystemR
           {children}
 
           {/* End CTA Card */}
-          <div className="snap-end shrink-0 h-full">
-            <Link
-              to={viewAllPath}
-              className="flex flex-col items-center justify-center h-full min-w-[240px] glass-card steami-hover-card group/cta transition-all duration-500 p-8 text-center"
-            >
-              <div className="w-12 h-12 rounded-full bg-steami-cyan/10 flex items-center justify-center mb-4 group-hover/cta:scale-110 transition-transform duration-500">
-                <ArrowRight className="w-6 h-6 text-steami-cyan" />
-              </div>
-              <h4 className="font-mono text-xs tracking-widest uppercase text-muted-foreground group-hover/cta:text-steami-cyan transition-colors mb-2">Explore All</h4>
-              <p className="text-[18px] font-serif font-extrabold text-foreground">{title}</p>
+          <div className="snap-end shrink-0 h-full py-4 px-2">
+            <AnimatedCardWrapper index={9}>
+              <Link
+                to={viewAllPath}
+                className="flex flex-col items-center justify-center h-full min-w-[240px] glass-card group/cta p-8 text-center"
+                style={{ minHeight: '100%' }}
+              >
+                <div className="w-12 h-12 rounded-full bg-steami-cyan/10 flex items-center justify-center mb-4 group-hover/cta:scale-110 transition-transform duration-500">
+                  <ArrowRight className="w-6 h-6 text-steami-cyan" />
+                </div>
+                <h4 className="font-mono text-xs tracking-widest uppercase text-muted-foreground group-hover/cta:text-steami-cyan transition-colors mb-2">Explore All</h4>
+                <p className="text-[18px] font-serif font-extrabold text-foreground">{title}</p>
 
-              {/* Subtle Background Glow */}
-              <div className="absolute inset-0 bg-steami-cyan/5 opacity-0 group-hover/cta:opacity-100 transition-opacity duration-500" />
-            </Link>
+                {/* Subtle Background Glow */}
+                <div className="absolute inset-0 bg-steami-cyan/5 opacity-0 group-hover/cta:opacity-100 transition-opacity duration-500" />
+              </Link>
+            </AnimatedCardWrapper>
           </div>
         </div>
 
