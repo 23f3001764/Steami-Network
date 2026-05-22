@@ -18,10 +18,7 @@ import { ChevronLeft, ChevronRight, Play, Pause, X, Lightbulb, ArrowRight, Netwo
 import { useThemeStore } from '@/stores/theme-store';
 import { api, apiAssetUrl } from '@/lib/api';
 
-const logPopupEvent = (popup_type: string, popup_id: string | undefined | null, popup_title?: string) => {
-  if (!popup_id) return;
-  api.dashboard.event({ popup_type, popup_id, popup_title: popup_title ?? '' }).catch(() => {});
-};
+import { logPopupOpen, logPopupOpenSync, logPopupClose, NO_SESSION, type PopupSession } from '@/lib/popup-telemetry';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/$/, '');
 
@@ -72,7 +69,7 @@ export default function ExplainerPage() {
     const item = pageExplainers[idx];
     if (item?.id) {
       setSearchParams({ explainer: item.id }, { replace: false });
-      logPopupEvent('explainer', item.id, item.title);
+      logPopupOpenSync('explainer', item.id, item.title, (s) => { popupSession.current = s; });
     }
   }, [pageExplainers, setSearchParams]);
 
@@ -83,6 +80,8 @@ export default function ExplainerPage() {
   }, []);
 
   const closeModal = () => {
+    logPopupClose(popupSession.current);
+    popupSession.current = NO_SESSION;
     setSelectedIdx(null);
     setSlideIdx(0);
     setAutoPlay(true);
@@ -98,7 +97,7 @@ export default function ExplainerPage() {
       const idx = pageExplainers.findIndex((e) => e.id === openId);
       if (idx !== -1) {
         if (selectedIdx === null) {
-          logPopupEvent('explainer', pageExplainers[idx]?.id, pageExplainers[idx]?.title);
+          logPopupOpenSync('explainer', pageExplainers[idx]?.id, pageExplainers[idx]?.title, (s) => { popupSession.current = s; });
         }
         openModalFromLink(idx);
       }

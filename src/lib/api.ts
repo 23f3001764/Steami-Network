@@ -375,14 +375,30 @@ export const api = {
   },
 
   dashboard: {
-    /** POST /api/dashboard/event — log a popup open (v2: includes keywords + subject in response) */
+    /** POST /api/dashboard/event — log a popup open (v2).
+     *  Returns the full enriched event document including `id`.
+     *  Store the returned `id` and send it to patchDuration() on close.
+     */
     event: (body: {
-      popup_type: string;
-      popup_id: string;
+      popup_type:  string;
+      popup_id:    string;
       popup_title?: string;
-      read_duration_seconds?: number;
       device_type?: string;
+      // NOTE: read_duration_seconds is no longer accepted here.
+      // Use patchDuration(eventId, seconds) when the popup closes instead.
     }) => apiRequest("/api/dashboard/event", { method: "POST", body }),
+
+    /**
+     * PATCH /api/dashboard/event/{id}/duration
+     * Called when a popup CLOSES. Updates the existing open-event document
+     * with read_duration_seconds — no duplicate row created.
+     * Minimum 2 s, maximum 7200 s (enforced server-side too).
+     */
+    patchDuration: (eventId: string, read_duration_seconds: number) =>
+      apiRequest(`/api/dashboard/event/${encodeURIComponent(eventId)}/duration`, {
+        method: 'PATCH',
+        body: { read_duration_seconds },
+      }),
 
     /** GET /api/dashboard/me — own activity summary */
     me: () => apiRequest("/api/dashboard/me"),

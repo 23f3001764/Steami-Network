@@ -18,14 +18,7 @@ import { Trash2, Share2, Twitter, Linkedin, ChevronLeft, ChevronRight, BookMarke
 import { Link } from 'react-router-dom';
 import { api, apiAssetUrl } from '@/lib/api';
 
-// ── Dashboard telemetry helpers ──────────────────────────────────────────────
-
-const getDeviceType = (): string => {
-  const ua = navigator.userAgent.toLowerCase();
-  if (/tablet|ipad|playbook|silk/.test(ua)) return 'tablet';
-  if (/mobile|iphone|ipod|android|blackberry|mini|windows\sce|palm/.test(ua)) return 'mobile';
-  return 'desktop';
-};
+import { logPopupOpen, logPopupOpenSync, logPopupClose, NO_SESSION, type PopupSession } from '@/lib/popup-telemetry';
 import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 
 // ---------------------------------------------------------------------------
@@ -99,8 +92,8 @@ export default function BlogArticlePage() {
   /** Ref scoped to the article body — TextSelectionPopover listens here only */
   const contentRef = useRef<HTMLDivElement>(null);
 
-  /** Track when this blog post was first opened for read-duration telemetry */
-  const pageOpenedAt = useRef<number>(0);
+  /** Telemetry session — holds eventId so close can PATCH the same row */
+  const pageSession = useRef<PopupSession>(NO_SESSION);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -113,33 +106,18 @@ export default function BlogArticlePage() {
           const normalised = normalisePost(backendPost);
           setPost(normalised);
           // Log open event once content is confirmed to exist
-          pageOpenedAt.current = Date.now();
-          api.dashboard.event({
-            popup_type:  'ai_insight',   // blog posts map to ai_insight in the taxonomy
-            popup_id:    id,
-            popup_title: normalised.title,
-            device_type: getDeviceType(),
-          }).catch(() => {});
+          logPopupOpen('ai_insight', id, normalised.title)
+            .then((s) => { pageSession.current = s; })
+            .catch(() => {});
         })
         .catch((err: any) =>
           setError(`Backend blog API failed: ${err.message || 'Unable to fetch post'}`)
         );
     }
-    // On unmount / route change — send read duration
+    // On unmount / route change — PATCH read duration onto the open-event row
     return () => {
-      if (pageOpenedAt.current && id) {
-        const seconds = Math.round((Date.now() - pageOpenedAt.current) / 1000);
-        if (seconds >= 2) {
-          api.dashboard.event({
-            popup_type:            'ai_insight',
-            popup_id:              id,
-            popup_title:           '',   // title may not be in scope; backend has it
-            device_type:           getDeviceType(),
-            read_duration_seconds: seconds,
-          }).catch(() => {});
-        }
-        pageOpenedAt.current = 0;
-      }
+      logPopupClose(pageSession.current);
+      pageSession.current = NO_SESSION;
     };
   }, [id]);
 
