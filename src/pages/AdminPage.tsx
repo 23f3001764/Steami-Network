@@ -66,6 +66,8 @@ interface NewsletterRecipient {
 const CSV_COLUMNS = [
   { key: 'id',                     label: 'Event ID',        width: 'w-32' },
   { key: 'uid',                    label: 'User ID',         width: 'w-32' },
+  { key: 'user_name',              label: 'User Name',       width: 'w-36' },
+  { key: 'user_role',              label: 'Role',            width: 'w-20' },
   { key: 'opened_at',              label: 'Opened At',       width: 'w-40' },
   { key: 'date',                   label: 'Date',            width: 'w-24' },
   { key: 'hour',                   label: 'Hour',            width: 'w-14' },
@@ -246,7 +248,7 @@ function NewsletterRow({ r }: { r: NewsletterRecipient }) {
 
 const ROWS_PER_PAGE = 25;
 const VISIBLE_COLS_DEFAULT: CsvColumnKey[] = [
-  'date', 'popup_type', 'popup_title', 'subject', 'keywords', 'read_duration_seconds', 'device_type',
+  'user_name', 'user_role', 'date', 'popup_type', 'popup_title', 'subject', 'keywords', 'read_duration_seconds', 'device_type',
 ];
 
 interface CsvFilters {
@@ -374,6 +376,24 @@ function CsvViewerPanel() {
     if (colKey === 'read_duration_seconds') {
       if (!raw || raw === 'None' || raw === '') return <span className="text-white/20">—</span>;
       return <span className="font-mono text-[11px] text-steami-gold">{raw}s</span>;
+    }
+
+    if (colKey === 'user_role') {
+      const roleStyles: Record<string, string> = {
+        admin: 'bg-steami-gold/15 text-steami-gold border-steami-gold/30',
+        mod:   'bg-purple-500/15 text-purple-300 border-purple-500/30',
+        user:  'bg-white/5 text-white/50 border-white/10',
+      };
+      const cls = roleStyles[raw] ?? roleStyles['user'];
+      return (
+        <span className={`inline-block rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide ${cls}`}>
+          {raw || 'user'}
+        </span>
+      );
+    }
+    if (colKey === 'user_name') {
+      if (!raw || raw === 'Unknown') return <span className="font-mono text-[11px] text-white/30 italic">Unknown</span>;
+      return <span className="text-[12px] font-medium truncate max-w-[140px] block" title={raw}>{raw}</span>;
     }
     if (['id', 'uid'].includes(colKey)) {
       return <span className="font-mono text-[10px] text-muted-foreground/60" title={raw}>{raw.slice(0, 8)}…</span>;
@@ -619,6 +639,8 @@ function CsvViewerPanel() {
 const COL_DESCRIPTIONS: Record<CsvColumnKey, string> = {
   id:                    'Unique UUID for this event',
   uid:                   'User who opened the popup',
+  user_name:             'Display name of the user, or "Unknown" if not logged in',
+  user_role:             'admin | mod | user ("user" if not logged in)',
   opened_at:             'Full ISO-8601 timestamp (UTC)',
   date:                  'Date only: YYYY-MM-DD',
   hour:                  'UTC hour 0–23 (for heatmaps)',
