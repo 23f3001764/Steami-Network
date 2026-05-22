@@ -4,7 +4,7 @@ import { SteamiLayout } from '@/components/SteamiLayout';
 import { QuantumBlochSphere } from '@/components/simulations/QuantumBlochSphere';
 import { ThreeBodySim } from '@/components/simulations/ThreeBodySim';
 import { staggerContainer, cardVariants, cardHover, cardTap, overlayVariants, modalVariants, fadeInUp } from '@/lib/motion';
-import { Lightbulb, ChevronDown, X } from 'lucide-react';
+import { Lightbulb, ChevronDown, X, BookMarked } from 'lucide-react';
 import { ShareMenu } from '@/components/ShareMenu';
 import { TextSelectionPopover } from '@/components/TextSelectionPopover';
 import { PopupLinkPill } from '@/components/PopupLinkPill';
@@ -31,6 +31,7 @@ interface SimulationRecord {
   snapshot_url:    string;
   glb_url:         string;
   tags:            string[];
+  references:      any[];   // {title, url?, author?, type?}[]
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1130,11 +1131,93 @@ export default function SimulationsPage() {
                     ))}
                   </motion.div>
                 )}
+
+                {/* ── References ───────────────────────────────────── */}
+                {openedSim.references?.length > 0 && (
+                  <SimReferencesSection references={openedSim.references} accentColor={accentColor(openedSim)} />
+                )}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </SteamiLayout>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SIMULATION REFERENCES SECTION
+   ══════════════════════════════════════════════════════════════════ */
+const SIM_REF_TYPE_COLORS: Record<string, string> = {
+  paper:   'rgba(167,139,250,0.15)', article: 'rgba(99,179,237,0.12)',
+  book:    'rgba(52,211,153,0.12)',  website: 'rgba(251,191,36,0.10)',
+  dataset: 'rgba(248,113,113,0.10)',
+};
+const SIM_REF_TYPE_TEXT: Record<string, string> = {
+  paper: '#a78bfa', article: '#63b3ed', book: '#34d399', website: '#fbbf24', dataset: '#f87171',
+};
+
+function SimReferencesSection({ references, accentColor }: { references: any[]; accentColor: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5 }}
+      className="mt-8 pt-6 border-t"
+      style={{ borderColor: 'rgba(255,255,255,0.07)' }}
+    >
+      <div
+        className="font-mono text-[11px] tracking-wider uppercase mb-4 flex items-center gap-2"
+        style={{ color: accentColor }}
+      >
+        <BookMarked className="w-3.5 h-3.5" /> REFERENCES
+      </div>
+      <ol className="space-y-2">
+        {references.map((ref: any, i: number) => {
+          const title  = typeof ref === 'string' ? ref : ref.title;
+          const url    = typeof ref === 'string' ? undefined : ref.url;
+          const author = typeof ref === 'string' ? undefined : ref.author;
+          const type   = typeof ref === 'string' ? undefined : ref.type;
+          return (
+            <motion.li
+              key={i}
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.52 + i * 0.03 }}
+              className="flex gap-3 items-start text-[13px] leading-relaxed"
+            >
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40 mt-0.5 w-5 text-right">
+                {i + 1}.
+              </span>
+              <div className="min-w-0 flex flex-col gap-0.5">
+                {type && (
+                  <span
+                    className="self-start font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm mb-0.5"
+                    style={{
+                      background: SIM_REF_TYPE_COLORS[type] ?? 'rgba(255,255,255,0.06)',
+                      color:      SIM_REF_TYPE_TEXT[type]   ?? '#94a3b8',
+                    }}
+                  >
+                    {type}
+                  </span>
+                )}
+                <div>
+                  {url ? (
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="font-medium hover:underline break-all text-steami-cyan">
+                      {title}
+                    </a>
+                  ) : (
+                    <span className="text-foreground/80 font-medium">{title}</span>
+                  )}
+                  {author && <span className="text-muted-foreground/60 text-[12px] ml-2">— {author}</span>}
+                </div>
+                {url && <span className="font-mono text-[10px] text-muted-foreground/40 break-all">{url}</span>}
+              </div>
+            </motion.li>
+          );
+        })}
+      </ol>
+    </motion.div>
   );
 }

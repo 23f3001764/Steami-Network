@@ -169,29 +169,50 @@ const emptyExplainer = {
 };
 const emptyResearch = {
   id:'',title:'',field:'',abstract:'',author:'',date:'',readTime:'',
-  content:'',quotes:'',keyFindings:'',relatedTopics:'',
+  content:'',quotes:'',keyFindings:'',relatedTopics:'',references:'',citations:'',
 };
 const emptyBlog = {
   id:'',title:'',subtitle:'',description:'',field:'',badgeColor:'',
   coverImage:'',tags:'',keyInsights:'',type:'article',simulationUrl:'',
   content:'',publishDate:'',readingTime:'',
   authorName:'',authorRole:'',authorAvatar:'',authorBio:'',
+  references:'',citations:'',
 };
 const emptySimulation = {
   id:'',title:'',field:'',fieldColor:'steami-badge-cyan',
   description:'',caption:'',readTime:'10 min interactive',
-  simulation_type:'custom',component_id:'',insights:'',tags:'',
+  simulation_type:'custom',component_id:'',insights:'',tags:'',references:'',
 };
 
 const emptyIntelligence = {
   id:'', heading:'', value:'', color:'cyan', direction:'↑', emoji:'',
 };
 
-const lines = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean);
-const csv   = (s:string) => s.split(',').map(l=>l.trim()).filter(Boolean);
+const lines     = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean);
+const csv       = (s:string) => s.split(',').map(l=>l.trim()).filter(Boolean);
 const parseRefs = (s:string) => s.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
   try{return JSON.parse(l);}catch{return{title:l};}
 });
+// parseCitations: each line is a citation row, tab/pipe-separated or JSON
+// Supported formats per line:
+//   [1] Text of the cited claim | Source Title | https://url | 2026-05-01
+//   {"id":"1","text":"...","source_title":"...","source_url":"...","accessed_date":"..."}
+const parseCitations = (s:string): {id:string;text:string;source_title:string;source_url?:string;accessed_date?:string}[] =>
+  s.split('\n').map(l=>l.trim()).filter(Boolean).map((l,i)=>{
+    try { return JSON.parse(l); } catch {}
+    // Try pipe-separated: [1] text | source | url | date
+    const bracketMatch = l.match(/^\[(\w+)\]\s*/);
+    const id = bracketMatch ? bracketMatch[1] : String(i+1);
+    const rest = bracketMatch ? l.slice(bracketMatch[0].length) : l;
+    const parts = rest.split('|').map(p=>p.trim());
+    return {
+      id,
+      text:          parts[0] || '',
+      source_title:  parts[1] || '',
+      source_url:    parts[2] || undefined,
+      accessed_date: parts[3] || undefined,
+    };
+  });
 
 function Field({label,value,onChange,placeholder='',required=false,disabled=false}:{
   label:string;value:string;onChange:(v:string)=>void;placeholder?:string;required?:boolean;disabled?:boolean;
@@ -307,6 +328,8 @@ export default function ModerationPage() {
             date:researchForm.date||undefined,readTime:researchForm.readTime||undefined,
             content:lines(researchForm.content),quotes:lines(researchForm.quotes),
             keyFindings:lines(researchForm.keyFindings),relatedTopics:lines(researchForm.relatedTopics),
+            references:parseRefs(researchForm.references),
+            citations:parseCitations(researchForm.citations),
           });
           if(imageFile)await api.content.uploadResearchImage(editingId,imageFile);
         } else {
@@ -318,6 +341,8 @@ export default function ModerationPage() {
             quotes:JSON.stringify(lines(researchForm.quotes)),
             keyFindings:JSON.stringify(lines(researchForm.keyFindings)),
             relatedTopics:JSON.stringify(lines(researchForm.relatedTopics)),
+            references:JSON.stringify(parseRefs(researchForm.references)),
+            citations:JSON.stringify(parseCitations(researchForm.citations)),
           },imageFile);
         }
       } else if (tab==='blog') {
@@ -329,6 +354,8 @@ export default function ModerationPage() {
           publishDate:blogForm.publishDate||new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
           readingTime:blogForm.readingTime||`${Math.max(1,Math.ceil(blogForm.content.length/1000))} MIN READ`,
           author:{name:blogForm.authorName||user?.fullName||'',role:blogForm.authorRole||user?.role||'',avatar:blogForm.authorAvatar||'',bio:blogForm.authorBio||''},
+          references:parseRefs(blogForm.references),
+          citations:parseCitations(blogForm.citations),
         };
         if(editingId)await api.content.updateBlogPost(editingId,b);
         else await api.content.createBlogPost(b);
@@ -339,6 +366,7 @@ export default function ModerationPage() {
           description:simForm.description,caption:simForm.caption,readTime:simForm.readTime||'10 min interactive',
           simulation_type:simForm.simulation_type||'custom',component_id:simForm.component_id,
           insights:lines(simForm.insights),tags:csv(simForm.tags),
+          references:parseRefs(simForm.references),
         };
         if(editingId)await api.simulations.update(editingId,s);
         else{if(!simForm.id||!simForm.title){setError('ID and Title required.');return;}await api.simulations.create(s);}
@@ -389,6 +417,12 @@ export default function ModerationPage() {
       quotes:Array.isArray(full.quotes)?full.quotes.join('\n'):'',
       keyFindings:Array.isArray(full.keyFindings)?full.keyFindings.join('\n'):'',
       relatedTopics:Array.isArray(full.relatedTopics)?full.relatedTopics.join('\n'):'',
+      references:Array.isArray(full.references)?full.references.map((r:any)=>JSON.stringify(r)).join('\n'):'',
+      citations:Array.isArray(full.citations)?full.citations.map((c:any)=>{
+        // Restore to pipe format for easy editing
+        if(c.text&&c.source_title) return `[${c.id||'?'}] ${c.text} | ${c.source_title}${c.source_url?` | ${c.source_url}`:''}${c.accessed_date?` | ${c.accessed_date}`:''}`;
+        return JSON.stringify(c);
+      }).join('\n'):'',
     });
     else if(tab==='blog'){const a=full.author??{};setBlogForm({
       id:full.id??id,title:full.title??'',subtitle:full.subtitle??'',description:full.description??'',
@@ -398,6 +432,11 @@ export default function ModerationPage() {
       type:full.type??'article',simulationUrl:full.simulationUrl??'',content:full.content??'',
       publishDate:full.publishDate??'',readingTime:full.readingTime??'',
       authorName:a.name??'',authorRole:a.role??'',authorAvatar:a.avatar??'',authorBio:a.bio??'',
+      references:Array.isArray(full.references)?full.references.map((r:any)=>JSON.stringify(r)).join('\n'):'',
+      citations:Array.isArray(full.citations)?full.citations.map((c:any)=>{
+        if(c.text&&c.source_title) return `[${c.id||'?'}] ${c.text} | ${c.source_title}${c.source_url?` | ${c.source_url}`:''}${c.accessed_date?` | ${c.accessed_date}`:''}`;
+        return JSON.stringify(c);
+      }).join('\n'):'',
     });}
     else if(tab==='simulation')setSimForm({
       id:full.id??id,title:full.title??'',field:full.field??'',fieldColor:full.fieldColor??'steami-badge-cyan',
@@ -405,6 +444,7 @@ export default function ModerationPage() {
       simulation_type:full.simulation_type??'custom',component_id:full.component_id??'',
       insights:Array.isArray(full.insights)?full.insights.join('\n'):'',
       tags:Array.isArray(full.tags)?full.tags.join(', '):'',
+      references:Array.isArray(full.references)?full.references.map((r:any)=>JSON.stringify(r)).join('\n'):'',
     });
     else if(tab==='intelligence')setIntelForm({
       id:full.id??id, heading:full.heading??full.title??'',
@@ -469,81 +509,268 @@ export default function ModerationPage() {
             <form onSubmit={submit} className="space-y-3">
 
               {tab==='explainer'&&<>
-                <Field label="ID" value={explainerForm.id} onChange={ef('id')} required disabled={!!editingId} placeholder="e.g. quantum-dog"/>
-                <Field label="Title" value={explainerForm.title} onChange={ef('title')} required/>
-                <Field label="Subtitle" value={explainerForm.subtitle} onChange={ef('subtitle')}/>
-                <Field label="Field (e.g. QUANTUM PHYSICS)" value={explainerForm.field} onChange={ef('field')}/>
-                <Field label="Badge Color" value={explainerForm.badgeColor} onChange={ef('badgeColor')} placeholder="cyan/green/violet/gold"/>
-                <Field label="Read Time" value={explainerForm.readTime} onChange={ef('readTime')} placeholder="8 MIN READ"/>
-                <Field label="Author" value={explainerForm.author} onChange={ef('author')}/>
-                <TextArea label="Content" value={explainerForm.content} onChange={ef('content')} rows={6} hint="One paragraph per line."/>
-                <TextArea label="Key Insights" value={explainerForm.keyInsights} onChange={ef('keyInsights')} rows={3} hint="One per line."/>
-                <TextArea label="Context" value={explainerForm.context} onChange={ef('context')} rows={3}/>
-                <TextArea label="Technical Detail" value={explainerForm.technicalDetail} onChange={ef('technicalDetail')} rows={3}/>
-                <TextArea label="Impact" value={explainerForm.impact} onChange={ef('impact')} rows={3}/>
-                <TextArea label="References" value={explainerForm.references} onChange={ef('references')} rows={4}
-                  hint='One per line as JSON: {"title":"...","url":"...","author":"...","type":"paper"}'/>
+                {/* ── Identity ─────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
+                  <Field label="ID" value={explainerForm.id} onChange={ef('id')} required disabled={!!editingId}
+                    placeholder="e.g. quantum-dog — URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
+                  <Field label="Title" value={explainerForm.title} onChange={ef('title')} required
+                    placeholder="e.g. 'How Quantum Entanglement Works' — shown as the main heading"/>
+                  <Field label="Subtitle" value={explainerForm.subtitle} onChange={ef('subtitle')}
+                    placeholder="e.g. 'A beginner's guide to spooky action at a distance' — one line teaser below the title"/>
+                  <Field label="Field / Category" value={explainerForm.field} onChange={ef('field')}
+                    placeholder="e.g. QUANTUM PHYSICS · BIOLOGY · AI — shown as the badge label on the card"/>
+                  <Field label="Badge Color" value={explainerForm.badgeColor} onChange={ef('badgeColor')}
+                    placeholder="cyan · green · violet · gold · red · blue · orange"/>
+                  <Field label="Read Time" value={explainerForm.readTime} onChange={ef('readTime')}
+                    placeholder="e.g. 8 MIN READ — estimated reading time shown on the card"/>
+                  <Field label="Author" value={explainerForm.author} onChange={ef('author')}
+                    placeholder="e.g. Dr. Priya Nair · STEAMI Science Desk"/>
+                </div>
+
+                {/* ── Content ──────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📝 Content</p>
+                  <TextArea label="Content Paragraphs" value={explainerForm.content} onChange={ef('content')} rows={7}
+                    hint="One paragraph per line. Each line becomes a separate <p> block. Write in plain language — explainers target a general audience."/>
+                  <TextArea label="Key Insights" value={explainerForm.keyInsights} onChange={ef('keyInsights')} rows={3}
+                    hint="One insight per line. These appear as highlighted bullet callouts, e.g. 'Entangled particles respond to each other instantly, regardless of distance.'"/>
+                  <TextArea label="Context (Historical/Background)" value={explainerForm.context} onChange={ef('context')} rows={3}
+                    hint="Optional. A paragraph giving historical or background context shown in a separate 'Context' section of the explainer."/>
+                  <TextArea label="Technical Detail" value={explainerForm.technicalDetail} onChange={ef('technicalDetail')} rows={3}
+                    hint="Optional. A deeper-dive paragraph for readers who want the science. Shown in a collapsible 'Technical Detail' section."/>
+                  <TextArea label="Real-World Impact" value={explainerForm.impact} onChange={ef('impact')} rows={3}
+                    hint="Optional. 1–2 sentences on why this matters in the real world. Shown in the 'Impact' section."/>
+                </div>
+
+                {/* ── References ───────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📚 References (Source List)</p>
+                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                    These appear as the <strong>References</strong> section at the bottom of the explainer. One reference per line.<br/>
+                    Accepted formats — plain title, or JSON object:<br/>
+                    <code className="text-steami-cyan text-[10px]">Wikipedia: Quantum Entanglement</code><br/>
+                    <code className="text-steami-cyan text-[10px]">{'{"title":"Quantum Entanglement — Wikipedia","url":"https://en.wikipedia.org/wiki/Quantum_entanglement","type":"website"}'}</code><br/>
+                    type options: <span className="text-steami-gold">paper · article · book · website · dataset</span>
+                  </p>
+                  <TextArea label="References" value={explainerForm.references} onChange={ef('references')} rows={5}
+                    hint='One per line. Plain title OR JSON: {"title":"...","url":"...","author":"...","type":"paper"}'/>
+                </div>
               </>}
 
               {tab==='research'&&<>
-                <Field label="ID" value={researchForm.id} onChange={rf('id')} required disabled={!!editingId} placeholder="e.g. topological-qubits"/>
-                <Field label="Title" value={researchForm.title} onChange={rf('title')} required/>
-                <Field label="Field" value={researchForm.field} onChange={rf('field')} required/>
-                <Field label="Abstract" value={researchForm.abstract} onChange={rf('abstract')}/>
-                <Field label="Author" value={researchForm.author} onChange={rf('author')}/>
-                <Field label="Date (YYYY-MM-DD)" value={researchForm.date} onChange={rf('date')} placeholder="2026-04-30"/>
-                <Field label="Read Time" value={researchForm.readTime} onChange={rf('readTime')}/>
-                <TextArea label="Content" value={researchForm.content} onChange={rf('content')} rows={6} hint="One paragraph per line."/>
-                <TextArea label="Quotes" value={researchForm.quotes} onChange={rf('quotes')} rows={3} hint="One per line."/>
-                <TextArea label="Key Findings" value={researchForm.keyFindings} onChange={rf('keyFindings')} rows={3} hint="One per line."/>
-                <TextArea label="Related Topics" value={researchForm.relatedTopics} onChange={rf('relatedTopics')} rows={2} hint="One per line."/>
+                {/* ── Identity ─────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
+                  <Field label="ID" value={researchForm.id} onChange={rf('id')} required disabled={!!editingId}
+                    placeholder="e.g. topological-qubits — URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
+                  <Field label="Title" value={researchForm.title} onChange={rf('title')} required
+                    placeholder="Full article title, e.g. 'Topological Qubits and Fault-Tolerant Computing'"/>
+                  <Field label="Field / Category" value={researchForm.field} onChange={rf('field')} required
+                    placeholder="e.g. QUANTUM PHYSICS · BIOLOGY · AI — must match a valid STEAMI field"/>
+                  <Field label="Author Name" value={researchForm.author} onChange={rf('author')}
+                    placeholder="e.g. Dr. Anika Sharma · IIT Madras"/>
+                  <Field label="Date (YYYY-MM-DD)" value={researchForm.date} onChange={rf('date')}
+                    placeholder="e.g. 2026-04-30 — when this research was published or written"/>
+                  <Field label="Read Time" value={researchForm.readTime} onChange={rf('readTime')}
+                    placeholder="e.g. 12 MIN READ — estimated reading time shown on the card"/>
+                </div>
+
+                {/* ── Abstract & Body ──────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📝 Content</p>
+                  <TextArea label="Abstract" value={researchForm.abstract} onChange={rf('abstract')} rows={3}
+                    hint="1–2 sentence summary shown on the article card. Keep it under 200 characters."/>
+                  <TextArea label="Content Paragraphs" value={researchForm.content} onChange={rf('content')} rows={8}
+                    hint="One paragraph per line. Each line becomes a separate <p> block on the article page. Use [1] [2] markers inline to reference citations below."/>
+                  <TextArea label="Quotes / Pull Quotes" value={researchForm.quotes} onChange={rf('quotes')} rows={3}
+                    hint="One quote per line. These are displayed as highlighted pull-quotes in the article. Include attribution if needed, e.g. '\"Quantum supremacy is real.\" — Dr. Priya Nair'"/>
+                </div>
+
+                {/* ── Key Findings & Topics ────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">🔍 Findings & Topics</p>
+                  <TextArea label="Key Findings" value={researchForm.keyFindings} onChange={rf('keyFindings')} rows={4}
+                    hint="One finding per line. These appear as a bullet list on the article. Write them as complete sentences, e.g. 'Researchers achieved 99.9% qubit fidelity at room temperature.'"/>
+                  <TextArea label="Related Topics" value={researchForm.relatedTopics} onChange={rf('relatedTopics')} rows={2}
+                    hint="One topic per line. Used for cross-linking, e.g. 'Quantum Computing' · 'Superconductivity' · 'Error Correction'"/>
+                </div>
+
+                {/* ── References ───────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📚 References (Source List)</p>
+                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                    These appear as the <strong>References</strong> section at the bottom of the article. One reference per line.<br/>
+                    Accepted formats — plain title, or JSON object:<br/>
+                    <code className="text-steami-cyan text-[10px]">Wikipedia: LK-99</code><br/>
+                    <code className="text-steami-cyan text-[10px]">{'{"title":"LK-99 — Wikipedia","url":"https://en.wikipedia.org/wiki/LK-99","author":"Wikipedia","type":"website"}'}</code><br/>
+                    type options: <span className="text-steami-gold">paper · article · book · website · dataset</span>
+                  </p>
+                  <TextArea label="References" value={researchForm.references} onChange={rf('references')} rows={6}
+                    hint='One per line. Plain title OR JSON: {"title":"...","url":"...","author":"...","type":"paper"}'/>
+                </div>
+
+                {/* ── Citations ────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">🔢 Citations (Inline Numbered)</p>
+                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                    These are the numbered in-text citations like <span className="text-steami-cyan">[1]</span>, <span className="text-steami-cyan">[2]</span> that appear inside your article paragraphs. The reader can click them to jump to the source.<br/><br/>
+                    In your <strong>Content Paragraphs</strong> above, write <code className="text-steami-cyan text-[10px]">[1]</code> at the end of a sentence to link to citation #1 here.<br/><br/>
+                    Each citation is one line. Use pipe <code className="text-steami-cyan text-[10px]">|</code> to separate fields:<br/>
+                    <code className="text-steami-cyan text-[10px]">[1] The claim being cited | Source Title | https://source-url.com | 2026-05-21</code><br/>
+                    Or paste full JSON:<br/>
+                    <code className="text-steami-cyan text-[10px]">{'{"id":"1","text":"Claim text","source_title":"Nature","source_url":"https://...","accessed_date":"2026-05-21"}'}</code>
+                  </p>
+                  <TextArea label="Citations" value={researchForm.citations} onChange={rf('citations')} rows={6}
+                    hint="One per line. Format: [1] cited text | Source Name | https://url | YYYY-MM-DD"/>
+                </div>
               </>}
 
               {tab==='blog'&&<>
-                <Field label="ID" value={blogForm.id} onChange={bf('id')} required disabled={!!editingId} placeholder="e.g. future-of-quantum"/>
-                <Field label="Title" value={blogForm.title} onChange={bf('title')} required/>
-                <Field label="Subtitle" value={blogForm.subtitle} onChange={bf('subtitle')}/>
-                <Field label="Description" value={blogForm.description} onChange={bf('description')}/>
-                <Field label="Field / Category" value={blogForm.field} onChange={bf('field')}/>
-                <Field label="Badge Color" value={blogForm.badgeColor} onChange={bf('badgeColor')}/>
-                <Field label="Type (article/simulation)" value={blogForm.type} onChange={bf('type')}/>
-                <Field label="Cover Image URL" value={blogForm.coverImage} onChange={bf('coverImage')}/>
-                <Field label="Tags (comma-separated)" value={blogForm.tags} onChange={bf('tags')}/>
-                <Field label="Publish Date" value={blogForm.publishDate} onChange={bf('publishDate')}/>
-                <Field label="Reading Time" value={blogForm.readingTime} onChange={bf('readingTime')}/>
-                <Field label="Simulation URL" value={blogForm.simulationUrl} onChange={bf('simulationUrl')}/>
-                <TextArea label="Key Insights" value={blogForm.keyInsights} onChange={bf('keyInsights')} rows={3} hint="One per line."/>
-                <TextArea label="Content" value={blogForm.content} onChange={bf('content')} rows={8}/>
+                {/* ── Identity ─────────────────────────────────────────── */}
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Author</p>
-                  <Field label="Name" value={blogForm.authorName} onChange={bf('authorName')} placeholder={user?.fullName||'Dr. Jane Smith'}/>
-                  <Field label="Role" value={blogForm.authorRole} onChange={bf('authorRole')}/>
-                  <Field label="Avatar URL" value={blogForm.authorAvatar} onChange={bf('authorAvatar')}/>
-                  <Field label="Bio" value={blogForm.authorBio} onChange={bf('authorBio')}/>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
+                  <Field label="ID" value={blogForm.id} onChange={bf('id')} required disabled={!!editingId}
+                    placeholder="e.g. future-of-quantum — URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
+                  <Field label="Title" value={blogForm.title} onChange={bf('title')} required
+                    placeholder="e.g. 'The Zero-Loss Era: How a Resurrected Crystal is Rewriting Global Power'"/>
+                  <Field label="Subtitle" value={blogForm.subtitle} onChange={bf('subtitle')}
+                    placeholder="e.g. 'Three global labs have validated ambient superconductivity in a lead apatite derivative'"/>
+                  <Field label="Description" value={blogForm.description} onChange={bf('description')}
+                    placeholder="2–3 sentence teaser shown in cards and social previews"/>
+                  <Field label="Field / Category" value={blogForm.field} onChange={bf('field')}
+                    placeholder="e.g. QUANTUM PHYSICS · AI · BIOLOGY — shown as the badge label"/>
+                  <Field label="Badge Color" value={blogForm.badgeColor} onChange={bf('badgeColor')}
+                    placeholder="cyan · green · violet · gold · red · blue · orange — controls badge colour"/>
+                  <Field label="Type" value={blogForm.type} onChange={bf('type')}
+                    placeholder="article (default) · explainer · simulation — determines how it is rendered"/>
+                  <Field label="Tags (comma-separated)" value={blogForm.tags} onChange={bf('tags')}
+                    placeholder="e.g. superconductivity, geopolitics, energy — used for filtering"/>
+                  <Field label="Publish Date" value={blogForm.publishDate} onChange={bf('publishDate')}
+                    placeholder="e.g. May 22, 2026 — shown below the title. Leave blank to auto-fill today."/>
+                  <Field label="Reading Time" value={blogForm.readingTime} onChange={bf('readingTime')}
+                    placeholder="e.g. 14 MIN READ — leave blank to auto-calculate from content length"/>
+                </div>
+
+                {/* ── Content ──────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📝 Content</p>
+                  <TextArea label="Key Insights" value={blogForm.keyInsights} onChange={bf('keyInsights')} rows={3}
+                    hint="One insight per line. These appear as bullet callouts at the top of the article, e.g. 'Three independent labs confirmed the result simultaneously.'"/>
+                  <TextArea label="Article Body (Markdown)" value={blogForm.content} onChange={bf('content')} rows={12}
+                    hint="Full article body in Markdown. Use **bold**, ## headings, > blockquotes. Use [1] [2] markers in the text to reference the inline citations added below."/>
+                  <Field label="Simulation URL (if type=simulation)" value={blogForm.simulationUrl} onChange={bf('simulationUrl')}
+                    placeholder="Only fill this if Type = simulation. Leave blank otherwise."/>
+                  <Field label="Cover Image URL" value={blogForm.coverImage} onChange={bf('coverImage')}
+                    placeholder="Paste a Cloudinary/CDN URL here, OR leave blank and upload an image file below"/>
+                </div>
+
+                {/* ── Author ───────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">✍️ Author</p>
+                  <Field label="Author Name" value={blogForm.authorName} onChange={bf('authorName')}
+                    placeholder={user?.fullName||'e.g. Shashi Kushwaha'}/>
+                  <Field label="Author Role / Title" value={blogForm.authorRole} onChange={bf('authorRole')}
+                    placeholder="e.g. Science Writer · Senior Analyst · IIT Madras"/>
+                  <Field label="Author Avatar URL" value={blogForm.authorAvatar} onChange={bf('authorAvatar')}
+                    placeholder="Paste a URL for the author's profile photo (optional)"/>
+                  <Field label="Author Bio" value={blogForm.authorBio} onChange={bf('authorBio')}
+                    placeholder="1–2 sentence bio shown at the end of the article (optional)"/>
+                </div>
+
+                {/* ── References ───────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📚 References (Source List)</p>
+                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                    These appear as the <strong>References / Works Cited</strong> section at the bottom of the article. One reference per line.<br/>
+                    Accepted formats — plain title, or JSON object:<br/>
+                    <code className="text-steami-cyan text-[10px]">Wikipedia: LK-99</code><br/>
+                    <code className="text-steami-cyan text-[10px]">{'{"title":"LK-99 — Wikipedia","url":"https://en.wikipedia.org/wiki/LK-99","author":"Wikipedia","type":"website"}'}</code><br/>
+                    type options: <span className="text-steami-gold">paper · article · book · website · dataset</span>
+                  </p>
+                  <TextArea label="References" value={blogForm.references} onChange={bf('references')} rows={6}
+                    hint='One per line. Plain title OR JSON: {"title":"...","url":"...","author":"...","type":"article"}'/>
+                </div>
+
+                {/* ── Citations ────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">🔢 Citations (Inline Numbered)</p>
+                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                    Numbered citations like <span className="text-steami-cyan">[1]</span>, <span className="text-steami-cyan">[2]</span> that appear inside your article body. Readers can click them to jump to the source.<br/><br/>
+                    In your <strong>Article Body</strong> above, place <code className="text-steami-cyan text-[10px]">[1]</code> at the end of the sentence you want to cite. Then add the matching citation here.<br/><br/>
+                    Each citation is one line. Pipe <code className="text-steami-cyan text-[10px]">|</code> separates fields:<br/>
+                    <code className="text-steami-cyan text-[10px]">[1] The claim being cited | Source Title | https://source-url.com | 2026-05-21</code><br/>
+                    Or paste full JSON:<br/>
+                    <code className="text-steami-cyan text-[10px]">{'{"id":"1","text":"Claim text","source_title":"Nature","source_url":"https://...","accessed_date":"2026-05-21"}'}</code>
+                  </p>
+                  <TextArea label="Citations" value={blogForm.citations} onChange={bf('citations')} rows={8}
+                    hint="One per line. Format: [1] cited text | Source Name | https://url | YYYY-MM-DD"/>
                 </div>
               </>}
 
               {tab==='simulation'&&<>
-                <Field label="ID" value={simForm.id} onChange={sf('id')} required disabled={!!editingId} placeholder="e.g. wave-function"/>
-                <Field label="Title" value={simForm.title} onChange={sf('title')} required/>
-                <Field label="Field" value={simForm.field} onChange={sf('field')}/>
-                <Field label="Badge Color class" value={simForm.fieldColor} onChange={sf('fieldColor')} placeholder="steami-badge-cyan"/>
-                <TextArea label="Description" value={simForm.description} onChange={sf('description')} rows={3}/>
-                <Field label="Caption" value={simForm.caption} onChange={sf('caption')}/>
-                <Field label="Read Time" value={simForm.readTime} onChange={sf('readTime')}/>
-                <Field label="Simulation Type" value={simForm.simulation_type} onChange={sf('simulation_type')} placeholder="bloch_sphere|three_body|custom"/>
-                <Field label="Component ID" value={simForm.component_id} onChange={sf('component_id')} placeholder="quantum|threebody|your-key"/>
-                <TextArea label="Key Insights" value={simForm.insights} onChange={sf('insights')} rows={4} hint="One per line."/>
-                <Field label="Tags (comma-separated)" value={simForm.tags} onChange={sf('tags')}/>
+                {/* ── Identity ─────────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
+                  <Field label="ID" value={simForm.id} onChange={sf('id')} required disabled={!!editingId}
+                    placeholder="e.g. wave-function — URL-safe, lowercase, hyphens. Once set, cannot be changed."/>
+                  <Field label="Title" value={simForm.title} onChange={sf('title')} required
+                    placeholder="e.g. 'Wave Function Collapse' — shown as the simulation heading"/>
+                  <Field label="Field / Category" value={simForm.field} onChange={sf('field')}
+                    placeholder="e.g. QUANTUM PHYSICS · PHYSICS · MATHEMATICS"/>
+                  <Field label="Badge Color Class" value={simForm.fieldColor} onChange={sf('fieldColor')}
+                    placeholder="steami-badge-cyan · steami-badge-violet · steami-badge-green · steami-badge-gold"/>
+                </div>
+
+                {/* ── Simulation Config ────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">⚙️ Simulation Config</p>
+                  <Field label="Simulation Type" value={simForm.simulation_type} onChange={sf('simulation_type')}
+                    placeholder="bloch_sphere · three_body · custom — determines the renderer used"/>
+                  <Field label="Component ID" value={simForm.component_id} onChange={sf('component_id')}
+                    placeholder="quantum · threebody · your-key — must match the React component key in SimulationsPage.tsx"/>
+                  <Field label="Read Time" value={simForm.readTime} onChange={sf('readTime')}
+                    placeholder="e.g. 12 min interactive — shown on the simulation card"/>
+                </div>
+
+                {/* ── Description & Insights ───────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📝 Description & Insights</p>
+                  <TextArea label="Description" value={simForm.description} onChange={sf('description')} rows={3}
+                    hint="2–3 sentence explanation of what this simulation shows. Displayed above the interactive canvas."/>
+                  <Field label="Caption" value={simForm.caption} onChange={sf('caption')}
+                    placeholder="Short caption shown below the canvas, e.g. 'Interactive Bloch Sphere — drag to rotate'"/>
+                  <TextArea label="Key Insights" value={simForm.insights} onChange={sf('insights')} rows={4}
+                    hint="One insight per line — plain-language takeaways shown as bullet points. Write for a general audience, e.g. 'A qubit is like a spinning coin — both 0 and 1 until measured.'"/>
+                  <Field label="Tags (comma-separated)" value={simForm.tags} onChange={sf('tags')}
+                    placeholder="e.g. quantum, physics, interactive — used for filtering"/>
+                </div>
+
+                {/* ── References ───────────────────────────────────────── */}
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📚 References (Source List)</p>
+                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                    These appear below the simulation as the <strong>References</strong> section. One reference per line.<br/>
+                    Accepted formats — plain title, or JSON:<br/>
+                    <code className="text-steami-cyan text-[10px]">Wikipedia: Bloch Sphere</code><br/>
+                    <code className="text-steami-cyan text-[10px]">{'{"title":"Bloch Sphere — Wikipedia","url":"https://en.wikipedia.org/wiki/Bloch_sphere","type":"website"}'}</code>
+                  </p>
+                  <TextArea label="References" value={simForm.references} onChange={sf('references')} rows={4}
+                    hint='One per line. Plain title OR JSON: {"title":"...","url":"...","author":"...","type":"paper"}'/>
+                </div>
+
+                {/* ── Media ────────────────────────────────────────────── */}
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-2">
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Preview Snapshot</p>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">🖼️ Preview Snapshot</p>
+                  <p className="text-[11px] text-muted-foreground/60">Upload a PNG/JPEG screenshot of the simulation used as the card thumbnail.</p>
                   <input type="file" accept="image/png,image/jpeg,image/webp"
                     onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{if(typeof r.result==='string')setSnapshotB64(r.result);};r.readAsDataURL(f);}}
                     className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
                   {snapshotB64&&<img src={snapshotB64} alt="Preview" className="w-full rounded-md object-cover" style={{maxHeight:120}}/>}
                 </div>
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-2">
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">3-D File (.glb/.gltf)</p>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📦 3-D File (.glb/.gltf)</p>
+                  <p className="text-[11px] text-muted-foreground/60">Upload a .glb or .gltf 3-D model file if this simulation uses a pre-built mesh. Leave blank for JS-rendered simulations.</p>
                   <input type="file" accept=".glb,.gltf,.obj,.fbx,.stl" onChange={e=>setGlbFile(e.target.files?.[0]??null)}
                     className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
                   {glbFile&&<p className="text-[11px] text-steami-green">Selected: {glbFile.name}</p>}

@@ -14,7 +14,7 @@ import { RelatedPosts } from '@/components/blog/RelatedPosts';
 
 import { useBlogStore } from '@/stores/blog-store';
 import { useThemeStore } from '@/stores/theme-store';
-import { Trash2, Share2, Twitter, Linkedin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Share2, Twitter, Linkedin, ChevronLeft, ChevronRight, BookMarked, Quote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, apiAssetUrl } from '@/lib/api';
 
@@ -58,6 +58,10 @@ function normalisePost(raw: any) {
     // arrays
     tags:        Array.isArray(raw.tags)        ? raw.tags        : [],
     keyInsights: Array.isArray(raw.keyInsights) ? raw.keyInsights : [],
+
+    // references and citations
+    references: Array.isArray(raw.references) ? raw.references : [],
+    citations:  Array.isArray(raw.citations)  ? raw.citations  : [],
 
     // author with safe fallbacks
     author: raw.author
@@ -223,7 +227,7 @@ export default function BlogArticlePage() {
 
             {/* Article body — TextSelectionPopover listens to mouseup inside this div only */}
             <div ref={contentRef}>
-              <BlogContent content={post.content} />
+              <BlogContent content={post.content} citations={post.citations} />
             </div>
 
             {/* Text-selection toolbar — scoped to article body, not sidebar/insights */}
@@ -234,6 +238,16 @@ export default function BlogArticlePage() {
               field={post.field}
               sourceId={post.id}
             />
+
+            {/* ── Citations ──────────────────────────────────────────────── */}
+            {post.citations.length > 0 && (
+              <BlogCitationsSection citations={post.citations} />
+            )}
+
+            {/* ── References ─────────────────────────────────────────────── */}
+            {post.references.length > 0 && (
+              <BlogReferencesSection references={post.references} />
+            )}
 
             {/* Knowledge Graph */}
             <div className="my-10">
@@ -364,5 +378,133 @@ export default function BlogArticlePage() {
         </div>
       </motion.div>
     </SteamiLayout>
+  );
+}
+/* ══════════════════════════════════════════════════════════════════
+   BLOG CITATIONS SECTION — numbered inline citations
+   ══════════════════════════════════════════════════════════════════ */
+function BlogCitationsSection({ citations }: { citations: any[] }) {
+  return (
+    <div className="mt-10 pt-6 border-t border-foreground/10">
+      <div className="font-mono text-[11px] tracking-wider uppercase mb-5 flex items-center gap-2 text-steami-cyan">
+        <Quote className="w-3.5 h-3.5" /> CITATIONS
+      </div>
+      <ol className="space-y-4">
+        {citations.map((c: any, i: number) => (
+          <li key={c.id ?? i} className="flex gap-3 items-start text-[13px] leading-relaxed">
+            {/* Number badge */}
+            <span
+              className="shrink-0 font-mono text-[10px] font-bold rounded-sm px-1.5 py-0.5 mt-0.5"
+              style={{
+                background: 'rgba(99,179,237,0.12)',
+                color: '#63b3ed',
+                border: '1px solid rgba(99,179,237,0.22)',
+              }}
+            >
+              {c.id ?? i + 1}
+            </span>
+            <div className="min-w-0">
+              {c.text && (
+                <p className="text-muted-foreground mb-1 italic leading-relaxed">"{c.text}"</p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {c.source_url ? (
+                  <a
+                    href={c.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-steami-cyan hover:underline transition-colors break-all"
+                  >
+                    {c.source_title || c.source_url}
+                  </a>
+                ) : c.source_title ? (
+                  <span className="font-medium text-steami-cyan">{c.source_title}</span>
+                ) : null}
+                {c.accessed_date && (
+                  <span className="font-mono text-[10px] text-muted-foreground/50">
+                    accessed {c.accessed_date}
+                  </span>
+                )}
+              </div>
+              {c.source_url && (
+                <span className="font-mono text-[10px] text-muted-foreground/40 break-all block mt-0.5">
+                  {c.source_url}
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BLOG REFERENCES SECTION — works cited / source list
+   ══════════════════════════════════════════════════════════════════ */
+const BLOG_REF_TYPE_COLORS: Record<string, string> = {
+  paper:   'rgba(167,139,250,0.15)', article: 'rgba(99,179,237,0.12)',
+  book:    'rgba(52,211,153,0.12)',  website: 'rgba(251,191,36,0.10)',
+  dataset: 'rgba(248,113,113,0.10)',
+};
+const BLOG_REF_TYPE_TEXT: Record<string, string> = {
+  paper: '#a78bfa', article: '#63b3ed', book: '#34d399', website: '#fbbf24', dataset: '#f87171',
+};
+
+function BlogReferencesSection({ references }: { references: any[] }) {
+  return (
+    <div className="mt-10 pt-6 border-t border-foreground/10">
+      <div className="font-mono text-[11px] tracking-wider uppercase mb-5 flex items-center gap-2 text-steami-gold">
+        <BookMarked className="w-3.5 h-3.5" /> WORKS CITED
+      </div>
+      <ol className="space-y-3">
+        {references.map((ref: any, i: number) => {
+          const title  = typeof ref === 'string' ? ref : ref.title;
+          const url    = typeof ref === 'string' ? undefined : ref.url;
+          const author = typeof ref === 'string' ? undefined : ref.author;
+          const type   = typeof ref === 'string' ? undefined : ref.type;
+          return (
+            <li key={i} className="flex gap-3 items-start text-[13px] leading-relaxed">
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40 mt-0.5 w-5 text-right">
+                {i + 1}.
+              </span>
+              <div className="min-w-0 flex flex-col gap-0.5">
+                {type && (
+                  <span
+                    className="self-start font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm mb-0.5"
+                    style={{
+                      background: BLOG_REF_TYPE_COLORS[type] ?? 'rgba(255,255,255,0.06)',
+                      color:      BLOG_REF_TYPE_TEXT[type]   ?? '#94a3b8',
+                    }}
+                  >
+                    {type}
+                  </span>
+                )}
+                <div>
+                  {url ? (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-steami-cyan hover:underline break-all transition-colors"
+                    >
+                      {title}
+                    </a>
+                  ) : (
+                    <span className="text-foreground/80 font-medium">{title}</span>
+                  )}
+                  {author && (
+                    <span className="text-muted-foreground/60 text-[12px] ml-2">— {author}</span>
+                  )}
+                </div>
+                {url && (
+                  <span className="font-mono text-[10px] text-muted-foreground/40 break-all">{url}</span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }

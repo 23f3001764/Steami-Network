@@ -14,7 +14,7 @@ import { researchFieldImages } from '@/data/research-images';
 import { useSteamiStore } from '@/stores/steami-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { overlayVariants, modalVariants, fadeInUp, cardTap } from '@/lib/motion';
-import { X, ChevronLeft, ChevronRight, Network, FileText, Sparkles, Search, BookOpen } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Network, FileText, Sparkles, Search, BookOpen, BookMarked, Quote } from 'lucide-react';
 import { MotionWrapper } from '@/components/MotionWrappers';
 import { api, apiAssetUrl } from '@/lib/api';
 
@@ -250,9 +250,164 @@ export default function ResearchPage() {
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   CATEGORY SECTION — horizontal slider with media cards
-   ═══════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   CITATIONS SECTION — numbered inline citations
+   ══════════════════════════════════════════════════════════════════ */
+function CitationsSection({ citations, isLight }: { citations: any[]; isLight: boolean }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4 }}
+      className="mt-10 pt-6 border-t"
+      style={{ borderColor: isLight ? 'rgba(147,197,253,0.25)' : 'rgba(99,179,237,0.12)' }}
+    >
+      <div className="font-mono text-[11px] tracking-wider uppercase mb-4 flex items-center gap-2"
+        style={{ color: isLight ? '#2563eb' : '#63b3ed' }}>
+        <Quote className="w-3.5 h-3.5" /> CITATIONS
+      </div>
+      <ol className="space-y-3">
+        {citations.map((c: any, i: number) => (
+          <motion.li
+            key={c.id ?? i}
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.42 + i * 0.04 }}
+            className="flex gap-3 items-start text-[13px] leading-relaxed"
+          >
+            {/* Number badge */}
+            <span
+              className="shrink-0 font-mono text-[10px] font-bold rounded-sm px-1.5 py-0.5 mt-0.5"
+              style={{
+                background: isLight ? 'rgba(37,99,235,0.1)' : 'rgba(99,179,237,0.12)',
+                color: isLight ? '#2563eb' : '#63b3ed',
+                border: isLight ? '1px solid rgba(37,99,235,0.2)' : '1px solid rgba(99,179,237,0.2)',
+              }}
+            >
+              {c.id ?? i + 1}
+            </span>
+            <div className="min-w-0">
+              {/* Cited claim text */}
+              {c.text && (
+                <p className="text-muted-foreground mb-0.5 italic">"{c.text}"</p>
+              )}
+              {/* Source */}
+              <div className="flex flex-wrap items-center gap-2">
+                {c.source_url ? (
+                  <a
+                    href={c.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium hover:underline transition-colors"
+                    style={{ color: isLight ? '#0ea5e9' : '#67e8f9' }}
+                  >
+                    {c.source_title || c.source_url}
+                  </a>
+                ) : c.source_title ? (
+                  <span className="font-medium" style={{ color: isLight ? '#0ea5e9' : '#67e8f9' }}>
+                    {c.source_title}
+                  </span>
+                ) : null}
+                {c.accessed_date && (
+                  <span className="font-mono text-[10px] text-muted-foreground/60">
+                    accessed {c.accessed_date}
+                  </span>
+                )}
+              </div>
+            </div>
+          </motion.li>
+        ))}
+      </ol>
+    </motion.div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   REFERENCES SECTION — source list at the bottom
+   ══════════════════════════════════════════════════════════════════ */
+const REF_TYPE_COLORS: Record<string, string> = {
+  paper:   'rgba(167,139,250,0.15)',
+  article: 'rgba(99,179,237,0.12)',
+  book:    'rgba(52,211,153,0.12)',
+  website: 'rgba(251,191,36,0.10)',
+  dataset: 'rgba(248,113,113,0.10)',
+};
+const REF_TYPE_TEXT: Record<string, string> = {
+  paper:   '#a78bfa', article: '#63b3ed', book: '#34d399', website: '#fbbf24', dataset: '#f87171',
+};
+
+function ReferencesSection({ references, isLight }: { references: any[]; isLight: boolean }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5 }}
+      className="mt-10 pt-6 border-t"
+      style={{ borderColor: isLight ? 'rgba(147,197,253,0.25)' : 'rgba(99,179,237,0.12)' }}
+    >
+      <div className="font-mono text-[11px] tracking-wider uppercase mb-4 flex items-center gap-2 text-steami-gold">
+        <BookMarked className="w-3.5 h-3.5" /> REFERENCES
+      </div>
+      <ol className="space-y-2">
+        {references.map((ref: any, i: number) => {
+          const title  = typeof ref === 'string' ? ref : ref.title;
+          const url    = typeof ref === 'string' ? undefined : ref.url;
+          const author = typeof ref === 'string' ? undefined : ref.author;
+          const type   = typeof ref === 'string' ? undefined : ref.type;
+          return (
+            <motion.li
+              key={i}
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.52 + i * 0.03 }}
+              className="flex gap-3 items-start text-[13px] leading-relaxed"
+            >
+              {/* Index */}
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/50 mt-0.5 w-5 text-right">
+                {i + 1}.
+              </span>
+              <div className="min-w-0 flex flex-col gap-0.5">
+                {/* Type badge */}
+                {type && (
+                  <span
+                    className="self-start font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm mb-0.5"
+                    style={{
+                      background: REF_TYPE_COLORS[type] ?? 'rgba(255,255,255,0.06)',
+                      color:      REF_TYPE_TEXT[type]   ?? '#94a3b8',
+                    }}
+                  >
+                    {type}
+                  </span>
+                )}
+                <div>
+                  {url ? (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:underline break-all"
+                      style={{ color: isLight ? '#0ea5e9' : '#67e8f9' }}
+                    >
+                      {title}
+                    </a>
+                  ) : (
+                    <span className="text-foreground/80 font-medium">{title}</span>
+                  )}
+                  {author && (
+                    <span className="text-muted-foreground/60 text-[12px] ml-2">— {author}</span>
+                  )}
+                </div>
+                {url && (
+                  <span className="font-mono text-[10px] text-muted-foreground/40 break-all">{url}</span>
+                )}
+              </div>
+            </motion.li>
+          );
+        })}
+      </ol>
+    </motion.div>
+  );
+}
 function CategorySection({
   field, items, onSelect, isLight,
 }: {
@@ -582,6 +737,16 @@ function ArticleModal({
                 <p className="text-sm font-medium leading-relaxed text-steami-gold2 italic">{quote}</p>
               </motion.blockquote>
             ))}
+
+            {/* ── Citations ─────────────────────────────────────────────── */}
+            {Array.isArray((article as any).citations) && (article as any).citations.length > 0 && (
+              <CitationsSection citations={(article as any).citations} isLight={isLight} />
+            )}
+
+            {/* ── References ────────────────────────────────────────────── */}
+            {Array.isArray((article as any).references) && (article as any).references.length > 0 && (
+              <ReferencesSection references={(article as any).references} isLight={isLight} />
+            )}
           </div>
         </div>
 

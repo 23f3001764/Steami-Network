@@ -282,6 +282,7 @@ export const api = {
     createResearch: (body: Record<string, unknown>) => apiRequest("/api/research/articles", { method: "POST", body }),
     createResearchWithImage: (body: Record<string, string>, file: File) => {
       const formData = new FormData();
+      // body may include references and citations as JSON strings
       Object.entries(body).forEach(([key, value]) => formData.append(key, value));
       formData.append("image", file);
       return apiRequest("/api/research/articles/create-with-image", { method: "POST", formData });
