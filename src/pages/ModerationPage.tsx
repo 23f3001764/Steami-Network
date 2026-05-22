@@ -55,7 +55,7 @@ function IntelligenceForm({form, nf, editingId}:{
       {/* Value / Status */}
       <div>
         <label className="block text-[11px] text-muted-foreground mb-1">Value / Status</label>
-        <input value={form.value} onChange={e=>nf('value')(e.target.value)} placeholder="e.g. 28% · Active · +1.2k Nodes"
+        <input value={form.value} onChange={e=>nf('value')(e.target.value)} placeholder="e.g. 28% / Active / +1.2k Nodes"
           className="w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]"/>
       </div>
 
@@ -513,26 +513,26 @@ export default function ModerationPage() {
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
                   <Field label="ID" value={explainerForm.id} onChange={ef('id')} required disabled={!!editingId}
-                    placeholder="e.g. quantum-dog — URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
+                    placeholder="e.g. quantum-dog - URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
                   <Field label="Title" value={explainerForm.title} onChange={ef('title')} required
-                    placeholder="e.g. 'How Quantum Entanglement Works' — shown as the main heading"/>
+                    placeholder="e.g. 'How Quantum Entanglement Works' - shown as the main heading"/>
                   <Field label="Subtitle" value={explainerForm.subtitle} onChange={ef('subtitle')}
-                    placeholder="e.g. 'A beginner's guide to spooky action at a distance' — one line teaser below the title"/>
+                    placeholder="e.g. 'A beginner's guide to spooky action at a distance' - one line teaser below the title"/>
                   <Field label="Field / Category" value={explainerForm.field} onChange={ef('field')}
-                    placeholder="e.g. QUANTUM PHYSICS · BIOLOGY · AI — shown as the badge label on the card"/>
+                    placeholder="e.g. QUANTUM PHYSICS / BIOLOGY / AI - shown as the badge label on the card"/>
                   <Field label="Badge Color" value={explainerForm.badgeColor} onChange={ef('badgeColor')}
-                    placeholder="cyan · green · violet · gold · red · blue · orange"/>
+                    placeholder="cyan / green / violet / gold / red / blue / orange"/>
                   <Field label="Read Time" value={explainerForm.readTime} onChange={ef('readTime')}
-                    placeholder="e.g. 8 MIN READ — estimated reading time shown on the card"/>
+                    placeholder="e.g. 8 MIN READ - estimated reading time shown on the card"/>
                   <Field label="Author" value={explainerForm.author} onChange={ef('author')}
-                    placeholder="e.g. Dr. Priya Nair · STEAMI Science Desk"/>
+                    placeholder="e.g. Dr. Priya Nair / STEAMI Science Desk"/>
                 </div>
 
                 {/* ── Content ──────────────────────────────────────────── */}
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📝 Content</p>
                   <TextArea label="Content Paragraphs" value={explainerForm.content} onChange={ef('content')} rows={7}
-                    hint="One paragraph per line. Each line becomes a separate <p> block. Write in plain language — explainers target a general audience."/>
+                    hint="One paragraph per line. Each line becomes a separate <p> block. Write in plain language - explainers target a general audience."/>
                   <TextArea label="Key Insights" value={explainerForm.keyInsights} onChange={ef('keyInsights')} rows={3}
                     hint="One insight per line. These appear as highlighted bullet callouts, e.g. 'Entangled particles respond to each other instantly, regardless of distance.'"/>
                   <TextArea label="Context (Historical/Background)" value={explainerForm.context} onChange={ef('context')} rows={3}
@@ -563,17 +563,17 @@ export default function ModerationPage() {
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
                   <Field label="ID" value={researchForm.id} onChange={rf('id')} required disabled={!!editingId}
-                    placeholder="e.g. topological-qubits — URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
+                    placeholder="e.g. topological-qubits - URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
                   <Field label="Title" value={researchForm.title} onChange={rf('title')} required
                     placeholder="Full article title, e.g. 'Topological Qubits and Fault-Tolerant Computing'"/>
                   <Field label="Field / Category" value={researchForm.field} onChange={rf('field')} required
-                    placeholder="e.g. QUANTUM PHYSICS · BIOLOGY · AI — must match a valid STEAMI field"/>
+                    placeholder="e.g. QUANTUM PHYSICS / BIOLOGY / AI - must match a valid STEAMI field"/>
                   <Field label="Author Name" value={researchForm.author} onChange={rf('author')}
-                    placeholder="e.g. Dr. Anika Sharma · IIT Madras"/>
+                    placeholder="e.g. Dr. Anika Sharma / IIT Madras"/>
                   <Field label="Date (YYYY-MM-DD)" value={researchForm.date} onChange={rf('date')}
-                    placeholder="e.g. 2026-04-30 — when this research was published or written"/>
+                    placeholder="e.g. 2026-04-30 - when this research was published or written"/>
                   <Field label="Read Time" value={researchForm.readTime} onChange={rf('readTime')}
-                    placeholder="e.g. 12 MIN READ — estimated reading time shown on the card"/>
+                    placeholder="e.g. 12 MIN READ - estimated reading time shown on the card"/>
                 </div>
 
                 {/* ── Abstract & Body ──────────────────────────────────── */}
@@ -584,7 +584,7 @@ export default function ModerationPage() {
                   <TextArea label="Content Paragraphs" value={researchForm.content} onChange={rf('content')} rows={8}
                     hint="One paragraph per line. Each line becomes a separate <p> block on the article page. Use [1] [2] markers inline to reference citations below."/>
                   <TextArea label="Quotes / Pull Quotes" value={researchForm.quotes} onChange={rf('quotes')} rows={3}
-                    hint="One quote per line. These are displayed as highlighted pull-quotes in the article. Include attribution if needed, e.g. '\"Quantum supremacy is real.\" — Dr. Priya Nair'"/>
+                    hint={'One quote per line. These are displayed as highlighted pull-quotes in the article. Include attribution if needed, e.g. \'"Quantum supremacy is real." \u2014 Dr. Priya Nair\''}/>
                 </div>
 
                 {/* ── Key Findings & Topics ────────────────────────────── */}
@@ -593,7 +593,7 @@ export default function ModerationPage() {
                   <TextArea label="Key Findings" value={researchForm.keyFindings} onChange={rf('keyFindings')} rows={4}
                     hint="One finding per line. These appear as a bullet list on the article. Write them as complete sentences, e.g. 'Researchers achieved 99.9% qubit fidelity at room temperature.'"/>
                   <TextArea label="Related Topics" value={researchForm.relatedTopics} onChange={rf('relatedTopics')} rows={2}
-                    hint="One topic per line. Used for cross-linking, e.g. 'Quantum Computing' · 'Superconductivity' · 'Error Correction'"/>
+                    hint="One topic per line. Used for cross-linking, e.g. 'Quantum Computing' / 'Superconductivity' / 'Error Correction'"/>
                 </div>
 
                 {/* ── References ───────────────────────────────────────── */}
@@ -631,7 +631,7 @@ export default function ModerationPage() {
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
                   <Field label="ID" value={blogForm.id} onChange={bf('id')} required disabled={!!editingId}
-                    placeholder="e.g. future-of-quantum — URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
+                    placeholder="e.g. future-of-quantum - URL-safe, lowercase, hyphens only. Once set, cannot be changed."/>
                   <Field label="Title" value={blogForm.title} onChange={bf('title')} required
                     placeholder="e.g. 'The Zero-Loss Era: How a Resurrected Crystal is Rewriting Global Power'"/>
                   <Field label="Subtitle" value={blogForm.subtitle} onChange={bf('subtitle')}
@@ -639,17 +639,17 @@ export default function ModerationPage() {
                   <Field label="Description" value={blogForm.description} onChange={bf('description')}
                     placeholder="2–3 sentence teaser shown in cards and social previews"/>
                   <Field label="Field / Category" value={blogForm.field} onChange={bf('field')}
-                    placeholder="e.g. QUANTUM PHYSICS · AI · BIOLOGY — shown as the badge label"/>
+                    placeholder="e.g. QUANTUM PHYSICS / AI / BIOLOGY - shown as the badge label"/>
                   <Field label="Badge Color" value={blogForm.badgeColor} onChange={bf('badgeColor')}
-                    placeholder="cyan · green · violet · gold · red · blue · orange — controls badge colour"/>
+                    placeholder="cyan / green / violet / gold / red / blue / orange - controls badge colour"/>
                   <Field label="Type" value={blogForm.type} onChange={bf('type')}
-                    placeholder="article (default) · explainer · simulation — determines how it is rendered"/>
+                    placeholder="article (default) / explainer / simulation - determines how it is rendered"/>
                   <Field label="Tags (comma-separated)" value={blogForm.tags} onChange={bf('tags')}
-                    placeholder="e.g. superconductivity, geopolitics, energy — used for filtering"/>
+                    placeholder="e.g. superconductivity, geopolitics, energy - used for filtering"/>
                   <Field label="Publish Date" value={blogForm.publishDate} onChange={bf('publishDate')}
-                    placeholder="e.g. May 22, 2026 — shown below the title. Leave blank to auto-fill today."/>
+                    placeholder="e.g. May 22, 2026 - shown below the title. Leave blank to auto-fill today."/>
                   <Field label="Reading Time" value={blogForm.readingTime} onChange={bf('readingTime')}
-                    placeholder="e.g. 14 MIN READ — leave blank to auto-calculate from content length"/>
+                    placeholder="e.g. 14 MIN READ - leave blank to auto-calculate from content length"/>
                 </div>
 
                 {/* ── Content ──────────────────────────────────────────── */}
@@ -671,7 +671,7 @@ export default function ModerationPage() {
                   <Field label="Author Name" value={blogForm.authorName} onChange={bf('authorName')}
                     placeholder={user?.fullName||'e.g. Shashi Kushwaha'}/>
                   <Field label="Author Role / Title" value={blogForm.authorRole} onChange={bf('authorRole')}
-                    placeholder="e.g. Science Writer · Senior Analyst · IIT Madras"/>
+                    placeholder="e.g. Science Writer / Senior Analyst / IIT Madras"/>
                   <Field label="Author Avatar URL" value={blogForm.authorAvatar} onChange={bf('authorAvatar')}
                     placeholder="Paste a URL for the author's profile photo (optional)"/>
                   <Field label="Author Bio" value={blogForm.authorBio} onChange={bf('authorBio')}
@@ -713,24 +713,24 @@ export default function ModerationPage() {
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📋 Identity</p>
                   <Field label="ID" value={simForm.id} onChange={sf('id')} required disabled={!!editingId}
-                    placeholder="e.g. wave-function — URL-safe, lowercase, hyphens. Once set, cannot be changed."/>
+                    placeholder="e.g. wave-function - URL-safe, lowercase, hyphens. Once set, cannot be changed."/>
                   <Field label="Title" value={simForm.title} onChange={sf('title')} required
-                    placeholder="e.g. 'Wave Function Collapse' — shown as the simulation heading"/>
+                    placeholder="e.g. 'Wave Function Collapse' - shown as the simulation heading"/>
                   <Field label="Field / Category" value={simForm.field} onChange={sf('field')}
-                    placeholder="e.g. QUANTUM PHYSICS · PHYSICS · MATHEMATICS"/>
+                    placeholder="e.g. QUANTUM PHYSICS / PHYSICS / MATHEMATICS"/>
                   <Field label="Badge Color Class" value={simForm.fieldColor} onChange={sf('fieldColor')}
-                    placeholder="steami-badge-cyan · steami-badge-violet · steami-badge-green · steami-badge-gold"/>
+                    placeholder="steami-badge-cyan / steami-badge-violet / steami-badge-green / steami-badge-gold"/>
                 </div>
 
                 {/* ── Simulation Config ────────────────────────────────── */}
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">⚙️ Simulation Config</p>
                   <Field label="Simulation Type" value={simForm.simulation_type} onChange={sf('simulation_type')}
-                    placeholder="bloch_sphere · three_body · custom — determines the renderer used"/>
+                    placeholder="bloch_sphere / three_body / custom - determines the renderer used"/>
                   <Field label="Component ID" value={simForm.component_id} onChange={sf('component_id')}
-                    placeholder="quantum · threebody · your-key — must match the React component key in SimulationsPage.tsx"/>
+                    placeholder="quantum / threebody / your-key - must match the React component key in SimulationsPage.tsx"/>
                   <Field label="Read Time" value={simForm.readTime} onChange={sf('readTime')}
-                    placeholder="e.g. 12 min interactive — shown on the simulation card"/>
+                    placeholder="e.g. 12 min interactive - shown on the simulation card"/>
                 </div>
 
                 {/* ── Description & Insights ───────────────────────────── */}
@@ -739,11 +739,11 @@ export default function ModerationPage() {
                   <TextArea label="Description" value={simForm.description} onChange={sf('description')} rows={3}
                     hint="2–3 sentence explanation of what this simulation shows. Displayed above the interactive canvas."/>
                   <Field label="Caption" value={simForm.caption} onChange={sf('caption')}
-                    placeholder="Short caption shown below the canvas, e.g. 'Interactive Bloch Sphere — drag to rotate'"/>
+                    placeholder="Short caption shown below the canvas, e.g. 'Interactive Bloch Sphere - drag to rotate'"/>
                   <TextArea label="Key Insights" value={simForm.insights} onChange={sf('insights')} rows={4}
-                    hint="One insight per line — plain-language takeaways shown as bullet points. Write for a general audience, e.g. 'A qubit is like a spinning coin — both 0 and 1 until measured.'"/>
+                    hint="One insight per line - plain-language takeaways shown as bullet points. Write for a general audience, e.g. 'A qubit is like a spinning coin - both 0 and 1 until measured.'"/>
                   <Field label="Tags (comma-separated)" value={simForm.tags} onChange={sf('tags')}
-                    placeholder="e.g. quantum, physics, interactive — used for filtering"/>
+                    placeholder="e.g. quantum, physics, interactive - used for filtering"/>
                 </div>
 
                 {/* ── References ───────────────────────────────────────── */}
