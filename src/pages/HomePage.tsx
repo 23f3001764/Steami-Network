@@ -740,30 +740,26 @@ function DashboardPreviewSection({ isLight }: { isLight: boolean }) {
 
   return (
     <section className="relative py-20 px-4 md:px-8 max-w-screen-xl mx-auto">
-      {/* Section header */}
-      <motion.div className="mb-10"
+      {/* Section header — matches original IntelligenceSystems heading style */}
+      <motion.div className="mb-10 text-center"
         initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }} transition={{ duration: 0.6 }}>
-        <div className="steami-section-label mb-3">◆ YOUR INTELLIGENCE DASHBOARD</div>
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <h2 className="steami-heading text-3xl md:text-4xl mb-2">
-              {isAuthed ? `Your Research Analytics` : 'Real-Time Knowledge Visualization'}
-            </h2>
-            <p className="text-[16px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              {isAuthed
-                ? 'A live snapshot of your research activity, intelligence profile, and subject mastery.'
-                : 'Experience the actual intelligence engines powering the STEAMI Network. Sign in to unlock your personal analytics.'}
-            </p>
-          </div>
-          {isAuthed && (
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-steami-cyan hover:text-steami-cyan/80 transition-colors shrink-0">
-              Full Dashboard <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        <h2 className="font-serif font-extrabold text-3xl md:text-4xl lg:text-5xl mb-4 leading-tight">
+          Real-Time Knowledge<br />
+          <span style={{ color: 'hsl(var(--steami-cyan))' }}>Visualization Architecture</span>
+        </h2>
+        <p className="text-[16px] font-medium text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-4">
+          {isAuthed
+            ? 'Experience the actual intelligence engines powering the STEAMI Network — your personal data, live.'
+            : 'Experience the actual intelligence engines powering the STEAMI Network. No concepts—only authentic research maps and interconnected data structures.'}
+        </p>
+        {isAuthed && (
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-steami-cyan hover:text-steami-cyan/80 transition-colors">
+            Full Dashboard <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        )}
       </motion.div>
 
       {/* ── Cards grid ── */}
@@ -1104,10 +1100,7 @@ const HomePage = () => {
             {/* 4. CONTENT ECOSYSTEM SECTION */}
             <EcosystemSection />
 
-            {/* 5. INTELLIGENCE MAPS SECTION */}
-            <IntelligenceSystems />
-
-            {/* 5b. DASHBOARD PREVIEW — live charts for authed / login gate for guests */}
+            {/* 5. DASHBOARD PREVIEW — replaces IntelligenceSystems, live charts for authed / login gate for guests */}
             <DashboardPreviewSection isLight={isLight} />
 
             {/* 6. INTELLIGENCE ARCHIVE — AI Insights API */}
