@@ -487,6 +487,27 @@ export const api = {
     clearTempBans: () => apiRequest("/api/security/temp-bans", { method: "DELETE" }),
   },
 
+  /**
+   * Visitor tracking — unique IPs that have hit the backend.
+   * All endpoints are ADMIN ONLY.
+   */
+  visitors: {
+    /** GET /api/visitors — list all unique IP visitor records, newest first. */
+    list: (params?: {
+      limit?: number;
+      skip?: number;
+      /** true = logged-in visitors only, false = unknown/guest only, omit = all */
+      logged_in?: boolean;
+    }) => apiRequest(`/api/visitors${buildQuery(params)}`),
+
+    /** GET /api/visitors/stats — aggregated counts + top 5 most-frequent IPs. */
+    stats: () => apiRequest("/api/visitors/stats"),
+
+    /** DELETE /api/visitors/{ip} — remove a visitor record by IP address. */
+    delete: (ip: string) =>
+      apiRequest(`/api/visitors/${encodeURIComponent(ip)}`, { method: "DELETE" }),
+  },
+
   chat: {
     upsertUser: (body: { id: string; username: string; avatar?: string; email?: string }) => apiRequest("/api/chat/users", { method: "POST", body }),
     users: () => apiRequest("/api/chat/users"),
