@@ -38,6 +38,7 @@ export default function ExplainerPage() {
   const [slideIdx, setSlideIdx] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
+  const popupSession = useRef<PopupSession>(NO_SESSION);
   const [backendExplainers, setBackendExplainers] = useState<any[]>([]);
   const [loadingExplainers, setLoadingExplainers] = useState(true);
   const [explainerError, setExplainerError] = useState('');
@@ -79,7 +80,10 @@ export default function ExplainerPage() {
     setAutoPlay(true);
   }, []);
 
+  const isClosingRef = useRef(false);
+
   const closeModal = () => {
+    isClosingRef.current = true;
     logPopupClose(popupSession.current);
     popupSession.current = NO_SESSION;
     setSelectedIdx(null);
@@ -89,17 +93,22 @@ export default function ExplainerPage() {
     params.delete('explainer');
     params.delete('open');
     setSearchParams(params, { replace: true });
+    // Reset the closing flag after the state update cycle
+    setTimeout(() => { isClosingRef.current = false; }, 100);
   };
 
   useEffect(() => {
+    // Don't re-open if we are in the middle of closing
+    if (isClosingRef.current) return;
     const openId = searchParams.get('explainer') ?? searchParams.get('open');
     if (openId) {
       const idx = pageExplainers.findIndex((e) => e.id === openId);
       if (idx !== -1) {
+        // Only open if not already showing this item
         if (selectedIdx === null) {
           logPopupOpenSync('explainer', pageExplainers[idx]?.id, pageExplainers[idx]?.title, (s) => { popupSession.current = s; });
+          openModalFromLink(idx);
         }
-        openModalFromLink(idx);
       }
     }
   }, [searchParams, openModalFromLink, pageExplainers]);

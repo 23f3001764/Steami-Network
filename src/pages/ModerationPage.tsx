@@ -532,7 +532,7 @@ export default function ModerationPage() {
                 <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-3">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">📝 Content</p>
                   <TextArea label="Content Paragraphs" value={explainerForm.content} onChange={ef('content')} rows={7}
-                    hint="One paragraph per line. Each line becomes a separate <p> block. Write in plain language - explainers target a general audience."/>
+                    hint="One paragraph per line. Each line becomes a separate <p> block on the article page. Use [1] [2] markers inline to reference citations below. Write in plain language - explainers target a general audience."/>
                   <TextArea label="Key Insights" value={explainerForm.keyInsights} onChange={ef('keyInsights')} rows={3}
                     hint="One insight per line. These appear as highlighted bullet callouts, e.g. 'Entangled particles respond to each other instantly, regardless of distance.'"/>
                   <TextArea label="Context (Historical/Background)" value={explainerForm.context} onChange={ef('context')} rows={3}
@@ -658,7 +658,7 @@ export default function ModerationPage() {
                   <TextArea label="Key Insights" value={blogForm.keyInsights} onChange={bf('keyInsights')} rows={3}
                     hint="One insight per line. These appear as bullet callouts at the top of the article, e.g. 'Three independent labs confirmed the result simultaneously.'"/>
                   <TextArea label="Article Body (Markdown)" value={blogForm.content} onChange={bf('content')} rows={12}
-                    hint="Full article body in Markdown. Use **bold**, ## headings, > blockquotes. Use [1] [2] markers in the text to reference the inline citations added below."/>
+                    hint="Full article body in Markdown. Use **bold**, ## headings, > blockquotes. One paragraph per line — each line becomes a separate block. Use [1] [2] markers in the text to reference the inline citations added below."/>
                   <Field label="Simulation URL (if type=simulation)" value={blogForm.simulationUrl} onChange={bf('simulationUrl')}
                     placeholder="Only fill this if Type = simulation. Leave blank otherwise."/>
                   <Field label="Cover Image URL" value={blogForm.coverImage} onChange={bf('coverImage')}

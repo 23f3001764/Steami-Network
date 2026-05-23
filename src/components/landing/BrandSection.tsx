@@ -14,6 +14,12 @@ export const BrandSection = () => {
   const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [0, 1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5, 1], [0.8, 1, 0.8]);
 
+  const BRANDS = [
+    { name: 'DeepMind', src: '/1.webp' },
+    { name: 'OpenAI',   src: '/2.webp' },
+    { name: 'CERN',     src: '/3.webp' },
+  ];
+
   return (
     <section ref={containerRef} className="py-48 flex items-center justify-center relative overflow-hidden">
       {/* 1. Atmospheric Visualization Layer */}
@@ -71,6 +77,42 @@ export const BrandSection = () => {
           >
             STEAMI transforms scientific complexity into the <span className={`${isLight ? 'text-zinc-900 font-medium' : 'text-white underline decoration-steami-cyan/30 underline-offset-8'}`}>architecture of discovery</span>.
           </motion.p>
+
+          {/* ── Trusted by Pioneers ─────────────────────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.7, duration: 0.6 }}
+            className="mt-20"
+          >
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-steami-cyan/50 mb-8">
+              Trusted by Pioneers
+            </p>
+            <div className="flex items-center justify-center gap-12 md:gap-20 flex-wrap">
+              {BRANDS.map((brand) => (
+                <motion.div
+                  key={brand.name}
+                  initial={{ opacity: 0.45 }}
+                  whileHover={{ opacity: 1, scale: 1.08 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center justify-center"
+                >
+                  <img
+                    src={brand.src}
+                    alt={brand.name}
+                    className="h-10 w-auto object-contain transition-all duration-300"
+                    style={{
+                      filter: isLight
+                        ? 'grayscale(1) contrast(0.8)'
+                        : 'grayscale(1) brightness(2) contrast(0.7)',
+                    }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
         </motion.div>
       </motion.div>
     </section>
