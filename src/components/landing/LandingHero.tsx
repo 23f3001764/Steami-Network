@@ -152,14 +152,29 @@ export const LandingHero = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 1 }}
-            className={`mt-16 flex items-center gap-4 transition-all cursor-default ${isLight ? 'opacity-90' : 'opacity-60 hover:opacity-100'}`}
+            className={`mt-16 flex items-center gap-6 transition-all cursor-default ${isLight ? 'opacity-100' : 'opacity-90 hover:opacity-100'}`}
           >
             <span className={`font-mono text-[10px] uppercase tracking-widest ${isLight ? 'text-zinc-500 font-bold' : 'text-white/60'}`}>Trusted by Pioneers</span>
             <div className={`w-px h-4 ${isLight ? 'bg-zinc-400' : 'bg-white/30'}`} />
-            <div className={`flex gap-6 font-serif italic text-sm ${isLight ? 'text-zinc-900' : 'text-white/90'}`}>
-              <span className="hover:text-steami-cyan transition-colors">DeepMind</span>
-              <span className="hover:text-steami-cyan transition-colors">OpenAI</span>
-              <span className="hover:text-steami-cyan transition-colors">CERN</span>
+            <div className="flex items-center gap-8">
+              {[
+                { name: 'DeepMind', src: '/1.webp' },
+                { name: 'OpenAI',   src: '/2.webp' },
+                { name: 'CERN',     src: '/3.webp' },
+              ].map((brand) => (
+                <img
+                  key={brand.name}
+                  src={brand.src}
+                  alt={brand.name}
+                  className="w-16 h-16 object-contain transition-all duration-300 hover:opacity-100 hover:scale-110"
+                  style={{
+                    opacity: 0.9,
+                    filter: isLight
+                      ? 'none'
+                      : 'brightness(1.8) contrast(1.1)',
+                  }}
+                />
+              ))}
             </div>
           </motion.div>
         </motion.div>
