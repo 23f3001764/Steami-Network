@@ -801,7 +801,8 @@ function VisitorPanel() {
   const [stats,    setStats]    = useState<LoadState>(initial);
   const [visitors, setVisitors] = useState<LoadState>(initial);
   const [filter,   setFilter]   = useState<'all' | 'logged_in' | 'unknown'>('all');
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleting,   setDeleting]   = useState<string | null>(null);
+  const [csvLoading, setCsvLoading] = useState(false);
 
   // Local load helper (mirrors the one in AdminPage)
   const load = async (setter: (s: LoadState) => void, fn: () => Promise<any>) => {
@@ -844,6 +845,58 @@ function VisitorPanel() {
     }
   };
 
+  const downloadCsv = async () => {
+    setCsvLoading(true);
+    try {
+      // Fetch ALL records (no pagination limit) for the export
+      const result = await api.visitors.list({ limit: 10000 });
+      const all: VisitorRecord[] = result?.visitors ?? [];
+
+      if (all.length === 0) {
+        alert('No visitor records to export.');
+        return;
+      }
+
+      // Build CSV — headers match every field in VisitorRecord
+      const CSV_HEADERS = ['ip', 'name', 'uid', 'role', 'is_logged_in', 'visit_count', 'first_seen', 'last_seen'];
+
+      const escapeCell = (val: unknown): string => {
+        const s = val === null || val === undefined ? '' : String(val);
+        // Wrap in quotes if contains comma, quote, or newline
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      const rows = [
+        CSV_HEADERS.join(','),
+        ...all.map(v =>
+          CSV_HEADERS.map(h => escapeCell(v[h as keyof VisitorRecord])).join(',')
+        ),
+      ];
+
+      const csvContent = rows.join('\n');
+      const blob       = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url        = URL.createObjectURL(blob);
+
+      // Trigger download
+      const timestamp  = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const link       = document.createElement('a');
+      link.href        = url;
+      link.download    = `steami-visitors-${timestamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (e: any) {
+      alert(e.message || 'CSV export failed');
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
   const s: VisitorStats | null = stats.data ?? null;
   const vList: VisitorRecord[] = Array.isArray(visitors.data?.visitors) ? visitors.data.visitors : [];
 
@@ -858,6 +911,15 @@ function VisitorPanel() {
       <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-white/10">
         <Globe className="w-4 h-4 text-steami-cyan shrink-0" />
         <h2 className="font-mono text-[13px] uppercase tracking-wider flex-1">Unique Visitors</h2>
+        <button
+          onClick={downloadCsv}
+          disabled={csvLoading}
+          className="flex items-center gap-1.5 steami-btn text-[11px] disabled:opacity-50"
+          title="Download all visitor records as CSV"
+        >
+          <Download className={`w-3 h-3 ${csvLoading ? 'animate-bounce' : ''}`} />
+          {csvLoading ? 'Exporting…' : 'Download CSV'}
+        </button>
         <button
           onClick={() => { loadStats(); loadVisitors(); }}
           className="flex items-center gap-1.5 steami-btn text-[11px]"
