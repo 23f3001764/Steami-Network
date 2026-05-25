@@ -20,6 +20,26 @@ import { api, apiAssetUrl } from '@/lib/api';
 
 import { logPopupOpen, logPopupOpenSync, logPopupClose, NO_SESSION, type PopupSession } from '@/lib/popup-telemetry';
 
+/**
+ * Returns a stable anonymous guest ID for unauthenticated event tracking.
+ * Generated once per browser and persisted in localStorage as `steami_guest_id`.
+ * This seeds the ID immediately on page module load so it is always available.
+ */
+const getGuestId = (): string => {
+  const KEY = 'steami_guest_id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+};
+
+// Seed the guest ID on module load so it exists before the first event fires.
+// This is a no-op if the ID is already stored.
+getGuestId();
+
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/$/, '');
 
 /** Prepend the backend base URL to an image path returned by the API. */
@@ -70,7 +90,7 @@ export default function ExplainerPage() {
     const item = pageExplainers[idx];
     if (item?.id) {
       setSearchParams({ explainer: item.id }, { replace: false });
-      logPopupOpenSync('explainer', item.id, item.title, (s) => { popupSession.current = s; });
+      logPopupOpenSync('explainer', item.id, item.title, (s) => { popupSession.current = s; }, getGuestId());
     }
   }, [pageExplainers, setSearchParams]);
 
@@ -106,7 +126,7 @@ export default function ExplainerPage() {
       if (idx !== -1) {
         // Only open if not already showing this item
         if (selectedIdx === null) {
-          logPopupOpenSync('explainer', pageExplainers[idx]?.id, pageExplainers[idx]?.title, (s) => { popupSession.current = s; });
+          logPopupOpenSync('explainer', pageExplainers[idx]?.id, pageExplainers[idx]?.title, (s) => { popupSession.current = s; }, getGuestId());
           openModalFromLink(idx);
         }
       }

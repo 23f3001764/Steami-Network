@@ -38,6 +38,26 @@ interface SimulationRecord {
 
 import { logPopupOpen, logPopupOpenSync, logPopupClose, NO_SESSION, type PopupSession } from '@/lib/popup-telemetry';
 
+/**
+ * Returns a stable anonymous guest ID for unauthenticated event tracking.
+ * Generated once per browser and persisted in localStorage as `steami_guest_id`.
+ * This seeds the ID immediately on page module load so it is always available.
+ */
+const getGuestId = (): string => {
+  const KEY = 'steami_guest_id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+};
+
+// Seed the guest ID on module load so it exists before the first event fires.
+// This is a no-op if the ID is already stored.
+getGuestId();
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // INLINE 3D SCENE COMPONENTS — self-contained, no external deps
 // These mirror the scenes in ModerationPage so the same animation plays
@@ -734,7 +754,7 @@ export default function SimulationsPage() {
     if (simId && simulations.some((s) => s.id === simId)) {
       setOpenSim(simId);
       const sim = simulations.find((s) => s.id === simId);
-      if (sim) logPopupOpenSync('simulation', sim.id, sim.title, (s) => { popupSession.current = s; });
+      if (sim) logPopupOpenSync('simulation', sim.id, sim.title, (s) => { popupSession.current = s; }, getGuestId());
       params.delete('simulation');
       params.delete('open');
       window.history.replaceState(
@@ -903,7 +923,7 @@ export default function SimulationsPage() {
                       whileTap={cardTap}
                       onClick={() => {
                         setOpenSim(sim.id);
-                        logPopupOpenSync('simulation', sim.id, sim.title, (s) => { popupSession.current = s; });
+                        logPopupOpenSync('simulation', sim.id, sim.title, (s) => { popupSession.current = s; }, getGuestId());
                       }}
                       className="steami-btn text-[11px]"
                     >

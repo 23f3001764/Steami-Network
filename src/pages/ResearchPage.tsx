@@ -20,6 +20,26 @@ import { api, apiAssetUrl } from '@/lib/api';
 
 import { logPopupOpen, logPopupOpenSync, logPopupClose, NO_SESSION, type PopupSession } from '@/lib/popup-telemetry';
 
+/**
+ * Returns a stable anonymous guest ID for unauthenticated event tracking.
+ * Generated once per browser and persisted in localStorage as `steami_guest_id`.
+ * This seeds the ID immediately on page module load so it is always available.
+ */
+const getGuestId = (): string => {
+  const KEY = 'steami_guest_id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+};
+
+// Seed the guest ID on module load so it exists before the first event fires.
+// This is a no-op if the ID is already stored.
+getGuestId();
+
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/$/, '');
 
 /** Prepend the backend base URL to an image path returned by the API. */
@@ -46,7 +66,7 @@ export default function ResearchPage() {
   const openArticle = (article: Article) => {
     setSelectedArticle(article);
     setSearchParams({ research: article.id }, { replace: false });
-    logPopupOpenSync('research_article', article.id, article.title, (s) => { popupSession.current = s; });
+    logPopupOpenSync('research_article', article.id, article.title, (s) => { popupSession.current = s; }, getGuestId());
   };
 
   const openArticleFromLink = (article: Article) => {
@@ -96,7 +116,7 @@ export default function ResearchPage() {
     const article = openId ? pageArticles.find((a) => a.id === openId) : null;
     if (article) {
       if (!selectedArticle) {
-        logPopupOpenSync('research_article', article.id, article.title, (s) => { popupSession.current = s; });
+        logPopupOpenSync('research_article', article.id, article.title, (s) => { popupSession.current = s; }, getGuestId());
       }
       openArticleFromLink(article);
     }

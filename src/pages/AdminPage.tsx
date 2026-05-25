@@ -40,6 +40,8 @@ interface PopupEvent {
   popup_type:    string;
   popup_title?:  string;
   uid?:          string;
+  user_role?:    string;
+  is_guest?:     boolean;
   subject?:      string;
   keywords?:     string[];
   date?:         string;
@@ -66,6 +68,7 @@ interface NewsletterRecipient {
 const CSV_COLUMNS = [
   { key: 'id',                     label: 'Event ID',        width: 'w-32' },
   { key: 'uid',                    label: 'User ID',         width: 'w-32' },
+  { key: 'is_guest',               label: 'Guest?',          width: 'w-16' },
   { key: 'user_name',              label: 'User Name',       width: 'w-36' },
   { key: 'user_role',              label: 'Role',            width: 'w-20' },
   { key: 'opened_at',              label: 'Opened At',       width: 'w-40' },
@@ -210,7 +213,11 @@ function EventRow({ ev }: { ev: PopupEvent }) {
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0">
         <SubjectBadge subject={ev.subject} />
-        <span className="font-mono text-[10px] text-muted-foreground/50">{ev.uid?.slice(0, 8)}…</span>
+        <span className="font-mono text-[10px] text-muted-foreground/50">
+          {ev.uid?.startsWith('guest:') || ev.is_guest
+            ? <span className="text-orange-400/70">guest</span>
+            : ev.uid?.slice(0, 8)}…
+        </span>
         {displayTime && (
           <span className="font-mono text-[10px] text-muted-foreground/40">{displayTime}</span>
         )}
@@ -248,7 +255,7 @@ function NewsletterRow({ r }: { r: NewsletterRecipient }) {
 
 const ROWS_PER_PAGE = 25;
 const VISIBLE_COLS_DEFAULT: CsvColumnKey[] = [
-  'user_name', 'user_role', 'date', 'popup_type', 'popup_title', 'subject', 'keywords', 'read_duration_seconds', 'device_type',
+  'is_guest', 'user_name', 'user_role', 'date', 'popup_type', 'popup_title', 'subject', 'keywords', 'read_duration_seconds', 'device_type',
 ];
 
 interface CsvFilters {
@@ -258,6 +265,7 @@ interface CsvFilters {
   date_from:  string;
   date_to:    string;
   limit:      number;
+  user_type:  '' | 'known' | 'unknown';   // ★ v3 — filter known vs guest users
 }
 
 const defaultFilters: CsvFilters = {
@@ -267,6 +275,7 @@ const defaultFilters: CsvFilters = {
   date_from:  '',
   date_to:    '',
   limit:      200,
+  user_type:  '',
 };
 
 const ALL_SUBJECTS = [
@@ -291,8 +300,23 @@ function CsvViewerPanel() {
     [csvText]
   );
 
-  const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-  const pageRows   = rows.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
+  // ── Client-side filter: known (authenticated) vs unknown (guest) ─────────
+  const filteredRows = useMemo(() => {
+    if (!filters.user_type || !headers.length) return rows;
+    const roleIdx     = headers.indexOf('user_role');
+    const isGuestIdx  = headers.indexOf('is_guest');
+    const uidIdx      = headers.indexOf('uid');
+    return rows.filter((row) => {
+      const role    = roleIdx    >= 0 ? row[roleIdx]    : '';
+      const isGuest = isGuestIdx >= 0 ? row[isGuestIdx] : '';
+      const uid     = uidIdx     >= 0 ? row[uidIdx]     : '';
+      const guestLike = role === 'guest' || isGuest === 'True' || isGuest === 'true' || uid.startsWith('guest:');
+      return filters.user_type === 'known' ? !guestLike : guestLike;
+    });
+  }, [rows, headers, filters.user_type]);
+
+  const totalPages = Math.ceil(filteredRows.length / ROWS_PER_PAGE);
+  const pageRows   = filteredRows.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
 
   // Map header name → column index for fast lookup
   const colIndex = useMemo(
@@ -378,11 +402,18 @@ function CsvViewerPanel() {
       return <span className="font-mono text-[11px] text-steami-gold">{raw}s</span>;
     }
 
+    if (colKey === 'is_guest') {
+      const isTrue = raw === 'True' || raw === 'true';
+      return isTrue
+        ? <span className="inline-flex items-center gap-0.5 rounded bg-orange-500/15 border border-orange-500/30 px-1.5 py-0.5 font-mono text-[9px] text-orange-300"><UserX className="w-2.5 h-2.5" />guest</span>
+        : <span className="font-mono text-[9px] text-white/20">—</span>;
+    }
     if (colKey === 'user_role') {
       const roleStyles: Record<string, string> = {
-        admin: 'bg-steami-gold/15 text-steami-gold border-steami-gold/30',
-        mod:   'bg-purple-500/15 text-purple-300 border-purple-500/30',
-        user:  'bg-white/5 text-white/50 border-white/10',
+        admin:  'bg-steami-gold/15 text-steami-gold border-steami-gold/30',
+        mod:    'bg-purple-500/15 text-purple-300 border-purple-500/30',
+        user:   'bg-white/5 text-white/50 border-white/10',
+        guest:  'bg-orange-500/15 text-orange-300 border-orange-500/30',
       };
       const cls = roleStyles[raw] ?? roleStyles['user'];
       return (
@@ -410,7 +441,7 @@ function CsvViewerPanel() {
           <h2 className="font-mono text-[13px] uppercase tracking-wider">Event Data Export</h2>
           {csvText && rows.length > 0 && (
             <span className="font-mono text-[11px] text-muted-foreground">
-              ({rows.length} row{rows.length !== 1 ? 's' : ''})
+              ({filteredRows.length}{filteredRows.length !== rows.length ? ` of ${rows.length}` : ''} row{filteredRows.length !== 1 ? 's' : ''})
             </span>
           )}
         </div>
@@ -469,6 +500,18 @@ function CsvViewerPanel() {
             {ALL_SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
 
+          {/* Known / Unknown user filter */}
+          <select
+            value={filters.user_type}
+            onChange={(e) => { updateFilter('user_type', e.target.value as CsvFilters['user_type']); setPage(0); }}
+            className="rounded border border-white/10 bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+            title="Filter by user type"
+          >
+            <option value="">All users</option>
+            <option value="known">Known (logged-in)</option>
+            <option value="unknown">Unknown (guest)</option>
+          </select>
+
           {/* UID filter */}
           <input
             value={filters.uid_filter}
@@ -504,7 +547,7 @@ function CsvViewerPanel() {
           />
 
           {/* Clear */}
-          {(filters.popup_type || filters.uid_filter || filters.subject || filters.date_from || filters.date_to) && (
+          {(filters.popup_type || filters.uid_filter || filters.subject || filters.date_from || filters.date_to || filters.user_type) && (
             <button
               onClick={() => setFilters(defaultFilters)}
               className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground hover:text-white transition-colors"
@@ -556,7 +599,7 @@ function CsvViewerPanel() {
         </div>
       )}
 
-      {csvText && rows.length === 0 && !loading && (
+      {csvText && filteredRows.length === 0 && !loading && (
         <div className="flex items-center justify-center py-16 text-muted-foreground font-mono text-[12px]">
           No events match the current filters.
         </div>
@@ -599,7 +642,7 @@ function CsvViewerPanel() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-5 py-3 border-t border-white/10 bg-white/[0.01]">
           <span className="font-mono text-[11px] text-muted-foreground">
-            Page {page + 1} of {totalPages} &nbsp;·&nbsp; {rows.length} total rows
+            Page {page + 1} of {totalPages} &nbsp;·&nbsp; {filteredRows.length}{filteredRows.length !== rows.length ? ` of ${rows.length}` : ''} rows
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -638,8 +681,9 @@ function CsvViewerPanel() {
 
 const COL_DESCRIPTIONS: Record<CsvColumnKey, string> = {
   id:                    'Unique UUID for this event',
-  uid:                   'User who opened the popup',
-  user_name:             'Display name of the user, or "Unknown" if not logged in',
+  uid:                   'User who opened the popup (guest:<id> for anonymous)',
+  is_guest:              'True if the visitor was not logged in (anonymous guest)',
+  user_name:             'Display name — "Guest" for anonymous, "Unknown" if unresolved',
   user_role:             'admin | mod | user ("user" if not logged in)',
   opened_at:             'Full ISO-8601 timestamp (UTC)',
   date:                  'Date only: YYYY-MM-DD',
@@ -1002,7 +1046,7 @@ function VisitorPanel() {
         )}
 
         {vList.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02]">
@@ -1124,6 +1168,7 @@ export default function AdminPage() {
   const [eventUidFilter,  setEventUidFilter]  = useState('');
   const [eventSubject,    setEventSubject]    = useState('');
   const [eventLimit,      setEventLimit]      = useState(50);
+  const [eventUserType,   setEventUserType]   = useState<'' | 'known' | 'unknown'>('');
 
   const isAdmin   = user?.role === 'admin';
   const isMod     = user?.role === 'mod' || user?.role === 'moderator';
@@ -1234,7 +1279,7 @@ export default function AdminPage() {
             onRefresh={() => load(setDashboard, api.dashboard.admin)}
           >
             {dash && (
-              <>
+              <div className="max-h-[520px] overflow-y-auto pr-1 space-y-0">
                 <div className="grid grid-cols-2 gap-3">
                   <StatCard label="Total Events"  value={dash.total_events} />
                   <StatCard label="Unique Users"  value={dash.unique_users} />
@@ -1280,7 +1325,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </ApiStatePanel>
         )}
@@ -1293,7 +1338,7 @@ export default function AdminPage() {
             onRefresh={() => load(setSecurity, api.security.stats)}
           >
             {sec && (
-              <>
+              <div className="max-h-[400px] overflow-y-auto pr-1">
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <StatCard label="Total Requests"  value={sec.total_requests} />
                   <StatCard label="Blocked Requests" value={sec.blocked_requests} />
@@ -1313,7 +1358,7 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
             <div className="flex flex-wrap gap-2">
               <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="IP address to ban / unban" className="min-w-0 flex-1 rounded-md border border-white/10 bg-transparent px-3 py-2 text-[14px]" />
@@ -1329,7 +1374,7 @@ export default function AdminPage() {
         {/* ── Users ────────────────────────────────────────────────────────── */}
         {isAdmin && (
           <ApiStatePanel title="Users and Roles" {...users} onRefresh={() => load(setUsers, api.auth.users)}>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
               {normalizedUsers.map((u: any) => {
                 const uid: string = u.id ?? u.uid;
                 return (
@@ -1359,7 +1404,7 @@ export default function AdminPage() {
 
         {/* ── Newsletter ───────────────────────────────────────────────────── */}
         <ApiStatePanel title="Newsletter" {...newsletter} onRefresh={() => load(setNewsletter, api.newsletter.recipients)}>
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {normalizedNewsletter.length === 0
               ? <p className="text-muted-foreground text-[13px]">No newsletter recipients yet.</p>
               : normalizedNewsletter.map((r: NewsletterRecipient, i: number) => <NewsletterRow key={r.id ?? r.email ?? i} r={r} />)
@@ -1389,7 +1434,7 @@ export default function AdminPage() {
               </div>
             )}
             {articleRefresh.result && (
-              <div className="mb-4 rounded-md border border-white/10 bg-white/[0.03] px-4 py-3 space-y-1">
+              <div className="mb-4 rounded-md border border-white/10 bg-white/[0.03] px-4 py-3 space-y-1 max-h-[240px] overflow-y-auto">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Last refresh result</div>
                 {Object.entries(articleRefresh.result).map(([k, v]) => (
                   <div key={k} className="flex gap-2 font-mono text-[12px]">
@@ -1431,16 +1476,35 @@ export default function AdminPage() {
                   <option value="">All subjects</option>
                   {ALL_SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <select
+                  value={eventUserType}
+                  onChange={(e) => setEventUserType(e.target.value as '' | 'known' | 'unknown')}
+                  className="rounded-md border border-white/10 bg-transparent px-3 py-1.5 text-[13px] font-mono text-muted-foreground"
+                >
+                  <option value="">All users</option>
+                  <option value="known">Known (logged-in)</option>
+                  <option value="unknown">Unknown (guest)</option>
+                </select>
                 <input value={eventUidFilter} onChange={(e) => setEventUidFilter(e.target.value)} placeholder="uid filter" className="rounded-md border border-white/10 bg-transparent px-3 py-1.5 text-[13px] w-40" />
                 <input type="number" min={1} max={500} value={eventLimit} onChange={(e) => setEventLimit(Number(e.target.value))} className="rounded-md border border-white/10 bg-transparent px-3 py-1.5 text-[13px] w-24" placeholder="limit" />
                 <button className="steami-btn text-[11px]" onClick={loadEvents}>Apply</button>
               </div>
-              <div className="space-y-2">
-                {normalizedEvents.length === 0
-                  ? <p className="text-muted-foreground text-[13px]">No popup events logged yet.</p>
-                  : normalizedEvents.map((ev: PopupEvent, i: number) => <EventRow key={ev.id ?? `${ev.popup_id}-${i}`} ev={ev} />)
-                }
-              </div>
+              {(() => {
+                const displayEvents = eventUserType
+                  ? normalizedEvents.filter((ev: PopupEvent) => {
+                      const guestLike = ev.is_guest === true || String(ev.uid ?? '').startsWith('guest:') || ev.user_role === 'guest';
+                      return eventUserType === 'known' ? !guestLike : guestLike;
+                    })
+                  : normalizedEvents;
+                return (
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                    {displayEvents.length === 0
+                      ? <p className="text-muted-foreground text-[13px]">No popup events match the current filters.</p>
+                      : displayEvents.map((ev: PopupEvent, i: number) => <EventRow key={ev.id ?? `${ev.popup_id}-${i}`} ev={ev} />)
+                    }
+                  </div>
+                );
+              })()}
             </ApiStatePanel>
           </div>
         )}
