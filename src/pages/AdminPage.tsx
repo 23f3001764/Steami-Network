@@ -329,7 +329,8 @@ function CsvViewerPanel() {
   const handlePreview = useCallback(async () => {
     setLoading(true); setError(''); setPage(0); setDlResult(null);
     try {
-      const text = await api.dashboard.previewCsv(filters);
+      const safeFilters = { ...filters, limit: Math.min(filters.limit, 1000) };
+      const text = await api.dashboard.previewCsv(safeFilters);
       setCsvText(text);
     } catch (e: any) {
       setError(e.message || 'Failed to load CSV');
@@ -341,7 +342,8 @@ function CsvViewerPanel() {
   const handleDownload = useCallback(async () => {
     setDlLoading(true); setDlResult(null);
     try {
-      const result = await api.dashboard.exportCsv(filters);
+      const safeFilters = { ...filters, limit: Math.min(filters.limit, 1000) };
+      const result = await api.dashboard.exportCsv(safeFilters);
       setDlResult(result);
     } catch (e: any) {
       setError(e.message || 'Download failed');
@@ -539,11 +541,11 @@ function CsvViewerPanel() {
           <input
             type="number"
             min={1}
-            max={10000}
+            max={1000}
             value={filters.limit}
-            onChange={(e) => updateFilter('limit', Number(e.target.value))}
+            onChange={(e) => updateFilter('limit', Math.min(1000, Math.max(1, Number(e.target.value))))}
             className="rounded border border-white/10 bg-transparent px-2 py-1.5 font-mono text-[11px] w-24 text-muted-foreground"
-            placeholder="Rows"
+            placeholder="Rows (max 1000)"
           />
 
           {/* Clear */}

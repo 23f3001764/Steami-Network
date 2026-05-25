@@ -52,7 +52,6 @@ import { SteamiSidePanel }   from '@/components/SteamiSidePanel';
 import { NewsPopup }          from '@/components/NewsPopup';
 import { IntelligenceTicker } from '@/components/home/intelligence-ticker/IntelligenceTicker';
 import { useThemeStore }      from '@/stores/theme-store';
-import { api }                from '@/lib/api';
 import {
   Search, Layers, ArrowRight, ChevronDown,
   BookOpen, Loader2,
@@ -371,7 +370,7 @@ function IntelligenceArchiveSection({ isLight }: { isLight: boolean }) {
               Intelligence Feed
             </h2>
             <p className="text-[16px] font-medium text-muted-foreground max-w-xl leading-relaxed">
-              AI-generated insights from the latest STEM news — updated in real-time.
+              Live insights from the latest STEM news — updated in real-time.
               {isAuthed && filtered.length > 0 && (
                 <span className="ml-2 font-mono text-steami-cyan text-[13px]">{filtered.length} insights</span>
               )}
@@ -675,50 +674,53 @@ const TYPE_LABELS_HOME: Record<string, string> = {
   explainer: 'Explainer', ai_insight: 'AI Insight', research_article: 'Research', simulation: 'Simulation',
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Static mock data for the Dashboard Preview (shown to ALL visitors)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MOCK_ACTIVITY = [
+  { label: 'Mon', count: 4 },
+  { label: 'Tue', count: 9 },
+  { label: 'Wed', count: 6 },
+  { label: 'Thu', count: 14 },
+  { label: 'Fri', count: 11 },
+  { label: 'Sat', count: 7 },
+  { label: 'Sun', count: 16 },
+];
+const MOCK_MAX = 16;
+
+const MOCK_RADAR = [
+  { metric: 'Research Depth', value: 78 },
+  { metric: 'Field Diversity', value: 64 },
+  { metric: 'Engagement', value: 91 },
+  { metric: 'News', value: 55 },
+  { metric: 'Explainers', value: 82 },
+  { metric: 'Consistency', value: 70 },
+];
+
+const MOCK_BREAKDOWN = [
+  { type: 'simulation',       count: 40, color: '#22c55e' },
+  { type: 'ai_insight',       count: 36, color: '#00d9ff' },
+  { type: 'explainer',        count: 14, color: '#a78bfa' },
+  { type: 'research_article', count: 10, color: '#e8b84b' },
+];
+
+const MOCK_RECENT = [
+  { title: 'CRISPR Breakthrough Targets Rare Mutations',       tag: 'Genomics',      badge: 'AI Insight', color: '#00d9ff' },
+  { title: 'Quantum Error Correction Hits New Milestone',      tag: 'Physics',       badge: 'Research',   color: '#e8b84b' },
+  { title: 'Dark Matter Detection via Neutrino Oscillations',  tag: 'Astrophysics',  badge: 'Explainer',  color: '#a78bfa' },
+  { title: 'mRNA Vaccine Efficacy in Respiratory Viruses',     tag: 'Immunology',    badge: 'AI Insight', color: '#00d9ff' },
+];
+
+const MOCK_NEWSLETTER = [
+  { time: '08:00 AM', type: 'Live News',    text: '3 new STEM headlines curated for you', color: '#00d9ff' },
+  { time: '12:00 PM', type: 'Explainer',    text: 'How gravitational waves reshape cosmology', color: '#a78bfa' },
+  { time: '06:00 PM', type: 'Research',     text: 'Top 5 peer-reviewed papers this week', color: '#e8b84b' },
+];
+
 function DashboardPreviewSection({ isLight }: { isLight: boolean }) {
-  const navigate    = useNavigate();
-  const user        = useAuthStore(s => s.user);
-  const isAuthed    = !!user;
-  const openAuth    = () => window.dispatchEvent(new CustomEvent('steami:openAuth'));
-
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isAuthed) return;
-    setLoading(true);
-    api.dashboard.me()
-      .then((data) => setStats(data as DashboardStats))
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-  }, [isAuthed]);
-
-  // 7-day heatmap
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().split('T')[0];
-    return { date: key, count: stats?.by_date?.[key] ?? 0, label: d.toLocaleDateString('en', { weekday: 'short' }) };
-  });
-  const maxDayCount = Math.max(...last7Days.map(d => d.count), 1);
-
-  const byType = stats?.by_type ?? {};
-  const typeBreakdown = Object.entries(byType)
-    .filter(([, v]) => (v ?? 0) > 0)
-    .map(([type, count]) => ({ type, count: count ?? 0 }))
-    .sort((a, b) => b.count - a.count);
-
-  const totalNotes = stats?.diary_total ?? 0;
-  const fields     = stats ? Object.keys(stats.by_type ?? {}).filter(k => (stats.by_type[k] ?? 0) > 0).length : 0;
-
-  const radarData = [
-    { metric: 'Research Depth', value: Math.min(100, totalNotes * 15), fullMark: 100 },
-    { metric: 'Field Diversity', value: Math.min(100, fields * 20), fullMark: 100 },
-    { metric: 'Engagement',      value: Math.min(100, (stats?.total_events ?? 0) * 5), fullMark: 100 },
-    { metric: 'News',            value: Math.min(100, (stats?.by_type?.research_article ?? 0) * 25), fullMark: 100 },
-    { metric: 'Explainers',      value: Math.min(100, (stats?.by_type?.explainer ?? 0) * 15), fullMark: 100 },
-    { metric: 'Consistency',     value: Math.min(100, Object.keys(stats?.by_date ?? {}).length * 14), fullMark: 100 },
-  ];
+  const navigate = useNavigate();
+  const openAuth = () => window.dispatchEvent(new CustomEvent('steami:openAuth'));
 
   const cardBase = {
     background: isLight ? 'rgba(255,255,255,0.72)' : 'rgba(8,16,38,0.72)',
@@ -726,328 +728,250 @@ function DashboardPreviewSection({ isLight }: { isLight: boolean }) {
     backdropFilter: 'blur(12px)',
   };
 
-  // The three preview cards shown to all users
-  const cards = [
-    { id: 'activity',    title: '7-DAY ACTIVITY',         icon: Flame,    iconColor: '#e8b84b' },
-    { id: 'profile',     title: 'INTELLIGENCE PROFILE',   icon: BarChart3, iconColor: '#00d9ff' },
-    { id: 'subject',     title: 'SUBJECT INTELLIGENCE',   icon: Activity,  iconColor: '#22c55e' },
-  ];
-
-  const handleCardClick = () => {
-    if (isAuthed) navigate('/dashboard');
-    else openAuth();
-  };
-
   return (
     <section className="relative py-20 px-4 md:px-8 max-w-screen-xl mx-auto">
-      {/* Section header — matches original IntelligenceSystems heading style */}
+      {/* Section header */}
       <motion.div className="mb-10 text-center"
         initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }} transition={{ duration: 0.6 }}>
+        <div className="steami-section-label mb-3 justify-center flex">◆ YOUR INTELLIGENCE DASHBOARD</div>
         <h2 className="font-serif font-extrabold text-3xl md:text-4xl lg:text-5xl mb-4 leading-tight">
           Real-Time Knowledge<br />
           <span style={{ color: 'hsl(var(--steami-cyan))' }}>Visualization Architecture</span>
         </h2>
-        <p className="text-[16px] font-medium text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-4">
-          {isAuthed
-            ? 'Experience the actual intelligence engines powering the STEAMI Network — your personal data, live.'
-            : 'Experience the actual intelligence engines powering the STEAMI Network. No concepts—only authentic research maps and interconnected data structures.'}
+        <p className="text-[16px] font-medium text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-2">
+          Sign in to unlock your personal intelligence dashboard — track your research, receive daily newsletters, and explore live STEM insights.
         </p>
-        {isAuthed && (
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-steami-cyan hover:text-steami-cyan/80 transition-colors">
-            Full Dashboard <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <p className="text-[13px] font-mono text-steami-cyan/70 max-w-xl mx-auto">
+          ✉ Daily newsletter · 📰 Live news · 🧠 AI explainers · 🔬 New research — delivered every day
+        </p>
       </motion.div>
 
-      {/* ── Cards grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-        {/* Card 1: 7-Day Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.5, delay: 0 }}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          onClick={handleCardClick}
-          className="relative rounded-2xl overflow-hidden cursor-pointer group"
-          style={cardBase}
-        >
-          {/* Top accent */}
-          <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #e8b84b 0%, transparent 80%)' }} />
-
-          {/* Preview image area — shown to non-authed */}
-          {!isAuthed && (
-            <div className="relative flex items-center justify-center" style={{ height: 200, background: isLight ? 'rgba(232,184,75,0.04)' : 'rgba(232,184,75,0.06)' }}>
-              {/* Blurred fake chart */}
-              <div className="w-full px-5 flex items-end gap-1.5 h-12 opacity-30 blur-[2px]">
-                {[30,60,20,50,80,45,90].map((h, i) => (
-                  <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: `hsl(42 75% 65% / 0.6)` }} />
-                ))}
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(232,184,75,0.12)', border: '1px solid rgba(232,184,75,0.3)' }}>
-                    <Lock className="w-4 h-4" style={{ color: '#e8b84b' }} />
-                  </div>
-                  <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#e8b84b' }}>Sign in to unlock</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Real chart — authed */}
-          {isAuthed && (
-            <div className="px-5 py-4" style={{ height: 200 }}>
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#e8b84b', opacity: 0.4 }} />
-                </div>
-              ) : (
-                <div className="flex items-end gap-1.5 h-full">
-                  {last7Days.map(({ date, count, label }) => {
-                    const intensity = count / maxDayCount;
-                    return (
-                      <div key={date} className="flex-1 flex flex-col items-center gap-1 h-full justify-end" title={`${date}: ${count}`}>
-                        <div className="w-full rounded-sm transition-all"
-                          style={{
-                            height: `${Math.max(6, intensity * 100)}%`,
-                            background: count === 0 ? 'hsl(42 75% 65% / 0.08)' : `hsl(42 75% 65% / ${0.2 + intensity * 0.75})`,
-                          }} />
-                        <span className="font-mono text-[9px] text-muted-foreground">{label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Card footer */}
-          <div className="p-5 pt-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Flame className="w-3.5 h-3.5" style={{ color: '#e8b84b' }} />
-              <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#e8b84b', opacity: 0.8 }}>7-Day Activity</span>
-            </div>
-            <h3 className="font-serif text-[18px] font-extrabold text-foreground mb-1">
-              {isAuthed ? `${stats?.total_events ?? 0} interactions` : 'Intelligence Profile'}
-            </h3>
-            <p className="text-[13px] text-muted-foreground mb-4">
-              {isAuthed
-                ? 'Your research engagement over the last week.'
-                : 'A dynamic visualization of your unique research footprint, tracking domain evolution and emerging scientific directions.'}
-            </p>
-            <span className="font-mono text-[11px] uppercase tracking-widest flex items-center gap-1"
-              style={{ color: isAuthed ? '#e8b84b' : 'hsl(var(--muted-foreground))' }}>
-              {isAuthed ? 'VIEW DASHBOARD' : 'VIEW SYSTEM'} <ArrowRight className="w-3 h-3" />
-            </span>
+      {/* ── Big Dashboard Preview ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }} transition={{ duration: 0.7 }}
+        className="relative rounded-3xl overflow-hidden mb-6"
+        style={{
+          background: isLight ? 'rgba(248,250,255,0.95)' : 'rgba(4,10,28,0.96)',
+          border: isLight ? '1px solid rgba(37,99,235,0.18)' : '1px solid rgba(0,217,255,0.12)',
+          boxShadow: isLight ? '0 24px 80px rgba(37,99,235,0.10)' : '0 24px 80px rgba(0,0,0,0.5)',
+        }}
+      >
+        {/* Fake browser chrome */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b"
+          style={{ borderColor: isLight ? 'rgba(37,99,235,0.1)' : 'rgba(0,217,255,0.08)', background: isLight ? 'rgba(241,245,249,0.8)' : 'rgba(3,8,20,0.8)' }}>
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full" style={{ background: '#ef4444' }} />
+            <div className="w-3 h-3 rounded-full" style={{ background: '#f59e0b' }} />
+            <div className="w-3 h-3 rounded-full" style={{ background: '#22c55e' }} />
           </div>
-        </motion.div>
-
-        {/* Card 2: Intelligence Profile (Radar) */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.1 }}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          onClick={handleCardClick}
-          className="relative rounded-2xl overflow-hidden cursor-pointer group"
-          style={cardBase}
-        >
-          <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #00d9ff 0%, transparent 80%)' }} />
-
-          {!isAuthed && (
-            <div className="relative flex items-center justify-center" style={{ height: 200, background: isLight ? 'rgba(0,217,255,0.04)' : 'rgba(0,217,255,0.06)' }}>
-              {/* Blurred fake radar */}
-              <div className="opacity-20 blur-[3px]" style={{ width: 120, height: 120 }}>
-                <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                  <polygon points="60,10 110,45 95,100 25,100 10,45" fill="rgba(0,217,255,0.15)" stroke="#00d9ff" strokeWidth="1" />
-                  <polygon points="60,25 90,50 80,85 40,85 30,50" fill="rgba(0,217,255,0.2)" stroke="#00d9ff" strokeWidth="1" />
-                </svg>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,217,255,0.12)', border: '1px solid rgba(0,217,255,0.3)' }}>
-                    <Lock className="w-4 h-4" style={{ color: '#00d9ff' }} />
-                  </div>
-                  <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#00d9ff' }}>Sign in to unlock</p>
-                </div>
-              </div>
+          <div className="flex-1 mx-4">
+            <div className="rounded-md px-3 py-1 font-mono text-[11px] text-muted-foreground/60 max-w-[240px] mx-auto text-center"
+              style={{ background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(8,18,42,0.7)', border: isLight ? '1px solid rgba(37,99,235,0.12)' : '1px solid rgba(0,217,255,0.1)' }}>
+              steami.ai/dashboard
             </div>
-          )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded flex items-center justify-center" style={{ background: 'rgba(0,217,255,0.08)' }}>
+              <TrendingUp className="w-2.5 h-2.5" style={{ color: '#00d9ff' }} />
+            </div>
+          </div>
+        </div>
 
-          {isAuthed && (
-            <div style={{ height: 200 }}>
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#00d9ff', opacity: 0.4 }} />
+        {/* Dashboard body */}
+        <div className="p-5 md:p-6">
+          {/* Top stats bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {[
+              { label: 'Total Events',    value: '247',  color: '#00d9ff',  icon: Activity },
+              { label: 'Insights Read',   value: '89',   color: '#a78bfa',  icon: Brain },
+              { label: 'Notes Saved',     value: '34',   color: '#e8b84b',  icon: BookOpen },
+              { label: 'Active Days',     value: '18',   color: '#22c55e',  icon: Flame },
+            ].map(({ label, value, color, icon: Icon }) => (
+              <div key={label} className="rounded-xl p-3"
+                style={{ background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(8,18,42,0.8)', border: `1px solid ${color}18` }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+                  <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{label}</span>
                 </div>
-              ) : (
+                <p className="font-mono text-[22px] font-extrabold" style={{ color }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Main 3-column grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* Col 1: 7-Day Activity */}
+            <div className="rounded-xl p-4"
+              style={{ background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(8,18,42,0.7)', border: '1px solid rgba(232,184,75,0.15)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Flame className="w-3.5 h-3.5" style={{ color: '#e8b84b' }} />
+                <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: '#e8b84b' }}>7-Day Activity</span>
+              </div>
+              <div className="flex items-end gap-1.5" style={{ height: 80 }}>
+                {MOCK_ACTIVITY.map(({ label, count }) => {
+                  const intensity = count / MOCK_MAX;
+                  return (
+                    <div key={label} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                      <div className="w-full rounded-sm"
+                        style={{ height: `${Math.max(8, intensity * 100)}%`, background: `hsl(42 75% 65% / ${0.25 + intensity * 0.7})` }} />
+                      <span className="font-mono text-[8px] text-muted-foreground">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="font-mono text-[11px] text-muted-foreground mt-3">67 interactions this week</p>
+            </div>
+
+            {/* Col 2: Intelligence Profile (Radar) */}
+            <div className="rounded-xl p-4"
+              style={{ background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(8,18,42,0.7)', border: '1px solid rgba(0,217,255,0.12)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="w-3.5 h-3.5" style={{ color: '#00d9ff' }} />
+                <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: '#00d9ff' }}>Intelligence Profile</span>
+              </div>
+              <div style={{ height: 110 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
-                    <PolarGrid stroke={isLight ? 'hsl(210 40% 75% / 0.4)' : 'hsl(207 72% 65% / 0.12)'} strokeWidth={0.5} />
-                    <PolarAngleAxis dataKey="metric" tick={{ fill: isLight ? 'hsl(210 30% 30%)' : 'hsl(210 25% 55%)', fontSize: 8, fontFamily: 'var(--font-mono)' }} />
+                  <RadarChart cx="50%" cy="50%" outerRadius="60%" data={MOCK_RADAR}>
+                    <PolarGrid stroke={isLight ? 'rgba(0,217,255,0.2)' : 'rgba(0,217,255,0.1)'} strokeWidth={0.5} />
+                    <PolarAngleAxis dataKey="metric" tick={{ fill: isLight ? 'hsl(210 30% 40%)' : 'hsl(210 25% 55%)', fontSize: 7, fontFamily: 'var(--font-mono)' }} />
                     <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar name="Profile" dataKey="value" stroke="hsl(207 72% 65%)" strokeWidth={1.5} fill="hsl(207 72% 65%)" fillOpacity={isLight ? 0.1 : 0.15}
-                      dot={{ r: 2.5, fill: 'hsl(207 72% 65%)', stroke: 'hsl(207 72% 85%)', strokeWidth: 1 }} />
-                    <Tooltip content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const d = payload[0].payload;
-                      return (
-                        <div className="rounded-lg px-3 py-2" style={{ background: isLight ? 'white' : '#0d1a2e', border: '1px solid rgba(0,217,255,0.2)' }}>
-                          <p className="font-mono text-[10px] text-muted-foreground uppercase">{d.metric}</p>
-                          <p className="font-mono text-sm font-extrabold text-foreground">{d.value}%</p>
-                        </div>
-                      );
-                    }} />
+                    <Radar name="Profile" dataKey="value" stroke="#00d9ff" strokeWidth={1.5} fill="#00d9ff" fillOpacity={0.12}
+                      dot={{ r: 2, fill: '#00d9ff', stroke: '#00d9ff', strokeWidth: 1 }} />
                   </RadarChart>
                 </ResponsiveContainer>
-              )}
-            </div>
-          )}
-
-          <div className="p-5 pt-2">
-            <div className="flex items-center gap-2 mb-1">
-              <BarChart3 className="w-3.5 h-3.5" style={{ color: '#00d9ff' }} />
-              <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#00d9ff', opacity: 0.8 }}>Intelligence Profile</span>
-            </div>
-            <h3 className="font-serif text-[18px] font-extrabold text-foreground mb-1">
-              {isAuthed && stats ? `${stats.total_events} events analysed` : 'Subject Intelligence'}
-            </h3>
-            <p className="text-[13px] text-muted-foreground mb-4">
-              {isAuthed
-                ? 'Your research profile across six intelligence dimensions.'
-                : 'Deep exploration of subject relationships and hidden patterns across disparate scientific silos through cluster-based analysis.'}
-            </p>
-            <span className="font-mono text-[11px] uppercase tracking-widest flex items-center gap-1"
-              style={{ color: isAuthed ? '#00d9ff' : 'hsl(var(--muted-foreground))' }}>
-              {isAuthed ? 'VIEW DASHBOARD' : 'VIEW SYSTEM'} <ArrowRight className="w-3 h-3" />
-            </span>
-          </div>
-        </motion.div>
-
-        {/* Card 3: By Content Type / Subject Intelligence */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.2 }}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          onClick={handleCardClick}
-          className="relative rounded-2xl overflow-hidden cursor-pointer group"
-          style={cardBase}
-        >
-          <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #22c55e 0%, transparent 80%)' }} />
-
-          {!isAuthed && (
-            <div className="relative flex items-center justify-center" style={{ height: 200, background: isLight ? 'rgba(34,197,94,0.04)' : 'rgba(34,197,94,0.06)' }}>
-              {/* Blurred fake bars */}
-              <div className="w-full px-6 space-y-2.5 opacity-20 blur-[2px]">
-                {[['Simulation', 80], ['AI Insight', 70], ['Explainer', 35], ['Research', 25]].map(([label, w]) => (
-                  <div key={label as string} className="flex items-center gap-3">
-                    <div className="w-16 h-4 rounded-sm" style={{ background: 'rgba(34,197,94,0.3)' }} />
-                    <div className="flex-1 h-1.5 rounded-full" style={{ background: `rgba(34,197,94,0.5)`, width: `${w}%` }} />
-                  </div>
-                ))}
               </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
-                    <Lock className="w-4 h-4" style={{ color: '#22c55e' }} />
-                  </div>
-                  <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#22c55e' }}>Sign in to unlock</p>
-                </div>
-              </div>
+              <p className="font-mono text-[11px] text-muted-foreground mt-1">247 events across 6 dimensions</p>
             </div>
-          )}
 
-          {isAuthed && (
-            <div className="px-5 py-4" style={{ height: 200 }}>
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#22c55e', opacity: 0.4 }} />
-                </div>
-              ) : typeBreakdown.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="font-mono text-[12px] text-muted-foreground">No activity yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-3 pt-2">
-                  {typeBreakdown.map(({ type, count }) => {
-                    const pct = Math.round((count / (stats?.total_events || 1)) * 100);
-                    const color = TYPE_BADGE_COLORS[type] ?? '#00d9ff';
-                    return (
-                      <div key={type} className="flex items-center gap-3">
-                        <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded shrink-0 w-20 text-center"
-                          style={{ background: `${color}18`, color, border: `1px solid ${color}33` }}>
-                          {TYPE_LABELS_HOME[type] ?? type}
-                        </span>
-                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: `${color}10` }}>
-                          <motion.div className="h-full rounded-full"
-                            style={{ background: `${color}99` }}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.8, ease: 'easeOut' }} />
-                        </div>
-                        <span className="font-mono text-[11px] text-muted-foreground w-6 text-right shrink-0">{count}</span>
+            {/* Col 3: Content Breakdown */}
+            <div className="rounded-xl p-4"
+              style={{ background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(8,18,42,0.7)', border: '1px solid rgba(34,197,94,0.12)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Activity className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
+                <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: '#22c55e' }}>By Content Type</span>
+              </div>
+              <div className="space-y-2.5">
+                {MOCK_BREAKDOWN.map(({ type, count, color }) => {
+                  const pct = Math.round((count / 100) * 100);
+                  return (
+                    <div key={type} className="flex items-center gap-2">
+                      <span className="font-mono text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 w-16 text-center"
+                        style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}>
+                        {TYPE_LABELS_HOME[type] ?? type}
+                      </span>
+                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: `${color}10` }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: `${color}99` }} />
                       </div>
-                    );
-                  })}
+                      <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-4 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity strip */}
+          <div className="mt-4 rounded-xl p-4"
+            style={{ background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(8,18,42,0.6)', border: isLight ? '1px solid rgba(37,99,235,0.1)' : '1px solid rgba(0,217,255,0.07)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="w-3.5 h-3.5" style={{ color: '#e8b84b' }} />
+              <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: '#e8b84b' }}>Recent Insights</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {MOCK_RECENT.map(({ title, tag, badge, color }) => (
+                <div key={title} className="flex items-center gap-3 rounded-lg px-3 py-2"
+                  style={{ background: isLight ? 'rgba(248,250,252,0.9)' : 'rgba(3,8,20,0.6)', border: `1px solid ${color}12` }}>
+                  <div className="shrink-0 w-1.5 h-8 rounded-full" style={{ background: color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-serif text-[12px] font-bold text-foreground leading-tight line-clamp-1">{title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="font-mono text-[9px]" style={{ color: `${color}cc` }}>{tag}</span>
+                      <span className="font-mono text-[8px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: `${color}15`, color }}>{badge}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          )}
-
-          <div className="p-5 pt-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Activity className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
-              <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#22c55e', opacity: 0.8 }}>By Content Type</span>
-            </div>
-            <h3 className="font-serif text-[18px] font-extrabold text-foreground mb-1">
-              {isAuthed ? 'Content Breakdown' : 'Knowledge Map'}
-            </h3>
-            <p className="text-[13px] text-muted-foreground mb-4">
-              {isAuthed
-                ? 'How your engagement is distributed across simulations, insights, explainers, and research.'
-                : 'The global architecture of scientific knowledge, visualized as an interconnected web of multi-layered intelligence structures.'}
-            </p>
-            <span className="font-mono text-[11px] uppercase tracking-widest flex items-center gap-1"
-              style={{ color: isAuthed ? '#22c55e' : 'hsl(var(--muted-foreground))' }}>
-              {isAuthed ? 'VIEW DASHBOARD' : 'VIEW SYSTEM'} <ArrowRight className="w-3 h-3" />
-            </span>
           </div>
-        </motion.div>
-      </div>
+        </div>
 
-      {/* Auth CTA bar — only for non-authed users */}
-      {!isAuthed && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 rounded-2xl"
+        {/* Gradient overlay — "sign in to see yours" blur effect at bottom */}
+        <div className="absolute bottom-0 inset-x-0 h-32 pointer-events-none"
+          style={{ background: isLight ? 'linear-gradient(to top, rgba(248,250,255,0.98) 0%, transparent 100%)' : 'linear-gradient(to top, rgba(4,10,28,0.98) 0%, transparent 100%)' }} />
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none">
+          <span className="font-mono text-[11px] uppercase tracking-widest px-4 py-1.5 rounded-full"
+            style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff' }}>
+            ↑ Your dashboard — sign in to see your live data
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Newsletter perks strip */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.15 }}
+        className="rounded-2xl p-5 mb-5"
+        style={{
+          background: isLight ? 'rgba(0,217,255,0.04)' : 'rgba(0,217,255,0.04)',
+          border: isLight ? '1px solid rgba(0,217,255,0.15)' : '1px solid rgba(0,217,255,0.1)',
+        }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+            style={{ background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.25)' }}>
+            <TrendingUp className="w-4 h-4" style={{ color: '#00d9ff' }} />
+          </div>
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#00d9ff' }}>Daily Newsletter — Members Only</p>
+            <p className="text-[13px] font-medium text-muted-foreground">What you get in your inbox every day:</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {MOCK_NEWSLETTER.map(({ time, type, text, color }) => (
+            <div key={type} className="flex items-start gap-3 rounded-xl p-3"
+              style={{ background: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(8,18,42,0.6)', border: `1px solid ${color}15` }}>
+              <div className="shrink-0 font-mono text-[9px] pt-0.5" style={{ color: `${color}80` }}>{time}</div>
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color }}>{type}</p>
+                <p className="text-[12px] text-muted-foreground leading-snug">{text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Sign-in CTA */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.25 }}
+        className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 rounded-2xl"
+        style={{
+          background: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(8,16,38,0.6)',
+          border: isLight ? '1px solid rgba(37,99,235,0.18)' : '1px solid rgba(0,217,255,0.14)',
+        }}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.2)' }}>
+            <Brain className="w-4 h-4" style={{ color: '#00d9ff' }} />
+          </div>
+          <p className="text-[13px] text-muted-foreground">
+            Sign in to see your personal research analytics, get daily newsletters with live news, new explainers, and top research — delivered every day.
+          </p>
+        </div>
+        <button onClick={openAuth}
+          className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-[11px] uppercase tracking-widest transition-all duration-200 hover:scale-105"
           style={{
-            background: isLight ? 'rgba(0,217,255,0.04)' : 'rgba(0,217,255,0.04)',
-            border: isLight ? '1px solid rgba(0,217,255,0.15)' : '1px solid rgba(0,217,255,0.12)',
+            background: 'rgba(0,217,255,0.1)',
+            border: '1px solid rgba(0,217,255,0.3)',
+            color: '#00d9ff',
+            boxShadow: '0 0 20px rgba(0,217,255,0.08)',
           }}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.2)' }}>
-              <Brain className="w-4 h-4" style={{ color: '#00d9ff' }} />
-            </div>
-            <p className="text-[13px] text-muted-foreground">
-              Sign in to access your personal research analytics, intelligence profile, and live STEM insights.
-            </p>
-          </div>
-          <button onClick={openAuth}
-            className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-[11px] uppercase tracking-widest transition-all duration-200 hover:scale-105"
-            style={{
-              background: 'rgba(0,217,255,0.1)',
-              border: '1px solid rgba(0,217,255,0.3)',
-              color: '#00d9ff',
-              boxShadow: '0 0 20px rgba(0,217,255,0.08)',
-            }}>
-            Sign In to Unlock
-          </button>
-        </motion.div>
-      )}
+          Sign In to Unlock <ArrowRight className="w-3 h-3" />
+        </button>
+      </motion.div>
     </section>
   );
 }
