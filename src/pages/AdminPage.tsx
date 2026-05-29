@@ -894,8 +894,8 @@ function VisitorPanel() {
   const downloadCsv = async () => {
     setCsvLoading(true);
     try {
-      // Fetch ALL records (no pagination limit) for the export
-      const result = await api.visitors.list({ limit: 10000 });
+      // Fetch ALL records for the export
+      const result = await api.visitors.list({});
       const all: VisitorRecord[] = result?.visitors ?? [];
 
       if (all.length === 0) {
